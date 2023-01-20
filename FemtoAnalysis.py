@@ -1,5 +1,5 @@
 import ROOT
-import test_correlation_handler as gentlefemto
+import correlation_handler as gentlefemto
 
 
 def getCorrelationFunction(infilename, config, rebinfactor):
