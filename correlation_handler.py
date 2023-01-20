@@ -5,7 +5,6 @@ from same-event and mixed-event distributions.
 
 from ROOT import TH1F
 from ROOT import TH2F
-from ROOT import TFile
 import logging
 import numpy as np
 
