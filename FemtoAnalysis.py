@@ -49,6 +49,7 @@ def getCorrelationFunction(infilename, config, hist_type, rebinfactor):
 
     histos = []
     for factor in rebinfactor:
+        ch.resetbin()
         ch.rebin(factor)
         ch.make_cf()
         ch.normalize(0.24, 0.34)
@@ -68,8 +69,6 @@ def getCorrelationFunction(infilename, config, hist_type, rebinfactor):
                     ["hCF_unw rebin: "+str(factor), ch.get_cf_unw().Clone()],
             ]
             histos.extend(h2)
-
-        ch.resetbin()
 
     return histos
 

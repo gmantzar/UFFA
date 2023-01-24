@@ -47,6 +47,8 @@ class CorrelationHandler:
 
         self.__se_k = None
         self.__me_k = None
+        self.__se_k_copy = None
+        self.__me_k_copy = None
         self.__cf = None
 
         if inputSE:
@@ -57,6 +59,7 @@ class CorrelationHandler:
                 self.__me_mult = None
 
                 self.__me_k_unw = None
+                self.__me_k_unw_copy = None
                 self.__me_mult_unw = None
                 self.__cf_unw = None
             else:
@@ -144,23 +147,20 @@ class CorrelationHandler:
             self.__me_k = hMixed_new
 
     def rebin(self, n_rebin=2):
-        self.se_k_copy = self.__se_k.Clone()
-        self.me_k_copy = self.__me_k.Clone()
+        self.__se_k_copy = self.__se_k.Clone()
+        self.__me_k_copy = self.__me_k.Clone()
         self.__se_k.Rebin(n_rebin)
         self.__me_k.Rebin(n_rebin)
         if self.__class == 'TH2F':
-            self.me_k_unw_copy = self.__me_k_unw.Clone()
+            self.__me_k_unw_copy = self.__me_k_unw.Clone()
             self.__me_k_unw.Rebin(n_rebin)
 
     def resetbin(self):
-        if self.se_k_copy:
-            self.__se_k = self.se_k_copy.Clone()
-            self.__me_k = self.me_k_copy.Clone()
+        if self.__se_k_copy:
+            self.__se_k = self.__se_k_copy.Clone()
+            self.__me_k = self.__me_k_copy.Clone()
             if self.__class == 'TH2F':
-                self.__me_k_unw = self.me_k_unw_copy.Clone()
-        else:
-            print("resetbin: no binning to reset")
-
+                self.__me_k_unw = self.__me_k_unw_copy.Clone()
 
     def make_cf(self):
         self.__cf = self.__se_k.Clone(f'hCF_{self.__name}')
