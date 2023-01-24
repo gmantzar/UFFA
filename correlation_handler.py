@@ -5,6 +5,7 @@ from same-event and mixed-event distributions.
 
 from ROOT import TH1F
 from ROOT import TH2F
+from ROOT import TFile
 import logging
 import numpy as np
 
@@ -142,11 +143,26 @@ class CorrelationHandler:
             self.__se_k = hSame_new
             self.__me_k = hMixed_new
 
-    def rebin(self, n_rebin=2) -> None:
+    def rebin(self, n_rebin=2):
+        self.se_k_copy = self.__se_k.Clone()
+        self.me_k_copy = self.__me_k.Clone()
         self.__se_k.Rebin(n_rebin)
         self.__me_k.Rebin(n_rebin)
+        if self.__class == 'TH2F':
+            self.me_k_unw_copy = self.__me_k_unw.Clone()
+            self.__me_k_unw.Rebin(n_rebin)
 
-    def make_correlation_function(self):
+    def resetbin(self):
+        if self.se_k_copy:
+            self.__se_k = self.se_k_copy.Clone()
+            self.__me_k = self.me_k_copy.Clone()
+            if self.__class == 'TH2F':
+                self.__me_k_unw = self.me_k_unw_copy.Clone()
+        else:
+            print("resetbin: no binning to reset")
+
+
+    def make_cf(self):
         self.__cf = self.__se_k.Clone(f'hCF_{self.__name}')
         self.__cf.Reset()
         self.__cf.GetYaxis().SetTitle('C(k*)')
@@ -158,7 +174,7 @@ class CorrelationHandler:
             if vSame < 1.e-12 or vMixed < 1.e-12:
                 continue
             else:
-                vCF = vSame/vMixed
+                vCF = vSame / vMixed
                 eCF = np.sqrt((eMixed/vMixed)*(eMixed/vMixed) +
                               (eSame/vSame)*(eSame/vSame)) * vCF
                 self.__cf.SetBinContent(i, vCF)
@@ -172,20 +188,20 @@ class CorrelationHandler:
         self.__cf_unw.Reset()
         self.__cf_unw.GetYaxis().SetTitle('C(k*)')
         for i in range(1, self.__cf_unw.GetNbinsX()):
-            vSame1 = self.__se_k.GetBinContent(i)
-            eSame1 = self.__se_k.GetBinError(i)
-            vMixed1 = self.__me_k_unw.GetBinContent(i)
-            eMixed1 = self.__me_k_unw.GetBinError(i)
-            if vSame1 < 1.e-12 or vMixed1 < 1.e-12:
+            vSame = self.__se_k.GetBinContent(i)
+            eSame = self.__se_k.GetBinError(i)
+            vMixed = self.__me_k_unw.GetBinContent(i)
+            eMixed = self.__me_k_unw.GetBinError(i)
+            if vSame < 1.e-12 or vMixed < 1.e-12:
                 continue
             else:
-                vCF = vSame1 / vMixed1
-                eCF = np.sqrt((eMixed1 / vMixed1)*(eMixed1 / vMixed1) +
-                              (eSame1 / vSame1)*(eSame1 / vSame1)) * vCF
+                vCF = vSame / vMixed
+                eCF = np.sqrt((eMixed / vMixed)*(eMixed / vMixed) +
+                              (eSame / vSame)*(eSame / vSame)) * vCF
                 self.__cf_unw.SetBinContent(i, vCF)
                 self.__cf_unw.SetBinError(i, eCF)
 
-    def normalise(self, low=0.6, high=1.) -> None:
+    def normalize(self, low=0.6, high=1.):
         if self.__cf:
             low_bin = self.__cf.FindBin(low)
             low_edge = self.__cf.GetBinLowEdge(low_bin)
@@ -279,7 +295,7 @@ class CorrelationHandler:
         return self.__me_mult_unw
 
     # Correlation function
-    def get_correlation_function(self):
+    def get_cf(self):
         return self.__cf
 
     def get_cf_unw(self):
