@@ -146,7 +146,9 @@ class CorrelationHandler:
             self.__se_k = hSame_new
             self.__me_k = hMixed_new
 
-    def rebin(self, n_rebin=2):
+    def rebin(self, n_rebin):
+        if n_rebin == 0 or n_rebin == 1:
+            return
         self.__se_k_copy = self.__se_k.Clone()
         self.__me_k_copy = self.__me_k.Clone()
         self.__se_k.Rebin(n_rebin)
@@ -248,7 +250,7 @@ class CorrelationHandler:
             se_ratio = se_bin.Integral() / se_mult_integral
             me_ratio = me_bin.Integral() / me_mult_integral
 
-            print("Currently at bin ", +ibin)
+            print("Currently at bin", ibin)
             print(se_ratio)
             print(me_ratio)
 
@@ -257,7 +259,7 @@ class CorrelationHandler:
                 me_mult.SetBinContent(ibin,me_bin.Integral())
                 me_k.Add(me_bin,1)
             else:
-                print("Attention: Multiplicity bin "+ibin+" has no entries. Please check!")
+                print("Attention: Multiplicity bin", ibin, "has no entries.")
 
         self.__se_k = se_k
         self.__se_mult = se_mult
