@@ -29,15 +29,16 @@ def getCorrelationFunction(infilename, config, hist_type, monte_carlo, rebinfact
 
     # set first bin factor to no rebinning and add other factors
     nobin = [1]
-    if isinstance(rebinfactor, int):
-        rebinfactor = [rebinfactor]
-    nobin.extend(rebinfactor)
+    if rebinfactor:
+        if isinstance(rebinfactor, int):
+            rebinfactor = [rebinfactor]
+        nobin.extend(rebinfactor)
     rebinfactor = nobin
 
     th2 = ['th2f', 'th2', 'mult', 'kmult']
-    hist_type = True if hist_type.lower() in th2 else False
+    hist_th2 = True if hist_type.lower() in th2 else False
 
-    if hist_type:
+    if hist_th2:
         if monte_carlo:
             se = directory.Get("SameEventMC/relPairkstarMult")
             me = directory.Get("MixedEventMC/relPairkstarMult")
@@ -57,34 +58,37 @@ def getCorrelationFunction(infilename, config, hist_type, monte_carlo, rebinfact
 
     infile.Close()
 
-    ch = gentlefemto.CorrelationHandler("cf", se, me)
-    if hist_type:
-        ch.reweight()
-
     histos = []
+    ch = gentlefemto.CorrelationHandler("cf", se, me)
+    if hist_th2:
+        ch.reweight()
+        hMult = [
+                ["hSE_mult", ch.get_se().Clone()],
+                ["hME_mult", ch.get_me().Clone()],
+        ]
+        histos.extend(hMult)
+
     for factor in rebinfactor:
         ch.rebin(factor)
         ch.make_cf()
         ch.normalize(0.24, 0.34)
-        if hist_type:
+        if hist_th2:
             ch.make_cf_unw()
             ch.normalize_unw(0.24, 0.34)
 
         conf_text = ""
-        if monte_carlo:
-            conf_text += " MC"
-        if factor != 1:
+        if factor > 1:
             conf_text += " rebin: " + str(factor)
         h1 = [
                 ["hSE" + conf_text, ch.get_se_k().Clone()],
                 ["hME" + conf_text, ch.get_me_k().Clone()],
-                ["hCF" + conf_text, ch.get_cf().Clone()],
+                ["hCk" + conf_text, ch.get_cf().Clone()],
         ]
         histos.extend(h1)
-        if hist_type:
+        if hist_th2:
             h2 = [
                     ["hME_unw"+conf_text, ch.get_me_k_unw().Clone()],
-                    ["hCF_unw"+conf_text, ch.get_cf_unw().Clone()],
+                    ["hCk_unw"+conf_text, ch.get_cf_unw().Clone()],
             ]
             histos.extend(h2)
         ch.resetbin()
@@ -116,7 +120,11 @@ def getSingleParticlePlots(infilename, config, monte_carlo = False):
 
     # list of TKey's in subdir
     subdir = directory.GetDirectory("Tracks_one")
-    lobj = subdir.GetListOfKeys()
+    try:
+        lobj = subdir.GetListOfKeys()
+    except:
+        print("Directory \"Tracks_one\" empty!")
+        return
     lobj_ent = lobj.GetEntries()
     lnk = lobj.FirstLink()
 
@@ -169,7 +177,11 @@ def getEventHistos(infilename, config):
     subdir = directory.GetDirectory("Event")
 
     # list of TKey's in subdir
-    lobj = subdir.GetListOfKeys()
+    try:
+        lobj = subdir.GetListOfKeys()
+    except:
+        print("Directory \"Event\" empty!")
+        return
     lobj_ent = lobj.GetEntries()
     lnk = lobj.FirstLink()
 
@@ -186,7 +198,7 @@ def getEventHistos(infilename, config):
 
     return histos
 
-def saveHistogramms(path, filename, newfile, config, hist_type = 'TH1F', monte_carlo = False, rebin = 0):
+def saveHistogramms(path, filename, newfile, config, hist_type = 'TH1F', monte_carlo = False, rebin = None):
     """
     Function to save the histogramms of an "AnalysisResults.root" file to a new file.
     Its name is the name of the infput file with the prefix "GF-output_".
@@ -218,10 +230,15 @@ def saveHistogramms(path, filename, newfile, config, hist_type = 'TH1F', monte_c
 
     # Get the histogramms from the input file
     correlationHistos = getCorrelationFunction(infile, config, hist_type, 0, rebin)
+
     if monte_carlo:
         hCorr_mc = getCorrelationFunction(infile, config, hist_type, 1, rebin)
         hTrack, hTrackMC = getSingleParticlePlots(infile, config, monte_carlo)
         hCorr_mc.extend(hTrackMC)
+        for n in range(len(hCorr_mc)):
+            name = hCorr_mc[n][0]
+            if name == "hPt":
+                hPt_mc = hCorr_mc[n][1]
     else:
         hTrack = getSingleParticlePlots(infile, config, monte_carlo)
 
@@ -229,23 +246,29 @@ def saveHistogramms(path, filename, newfile, config, hist_type = 'TH1F', monte_c
 
     histos = []
     histos.extend(correlationHistos)
-    histos.extend(hTrack)
-    histos.extend(eventHistos)
+    try:
+        histos.extend(hTrack)
+        histos.extend(eventHistos)
+    except:
+        pass
 
     for n in range(len(histos)):
         name = histos[n][0]
         if name == "hPt":
-            nTPC = histos[n][1].Integral(0, histos[n][1].FindBin(0.75))
+            TPC_Int = histos[n][1].Integral(0, histos[n][1].FindBin(0.75))
+            hPt = histos[n][1]
         if name == "zvtxhist":
-            nEvents = histos[n][1].GetEntries()
+            zvtx_Events = histos[n][1].GetEntries()
 
 
     # print here some interesting numbers like number of pairs in a certain k^* region, number of events, etc.
     print("\n### Getting file", filename, "###")
     print("Number of Events:\n", histos[0][1].GetEntries())
-    print("nTPC/nEvents:\n", nTPC/nEvents)
-    print("Number of pairs in the low k* region:\n",
-          histos[0][1].Integral(1, histos[0][1].FindBin(0.2)))
+    try:
+        print("nTPC/nEvents:\n", TPC_Int/zvtx_Events)
+        print("Number of pairs in the low k* region:\n", histos[0][1].Integral(1, histos[0][1].FindBin(0.2)))
+    except:
+        pass
 
 
     fileaction = "recreate" if newfile else "update"
@@ -265,9 +288,16 @@ def saveHistogramms(path, filename, newfile, config, hist_type = 'TH1F', monte_c
 
     # Subdir in same TDirectory for MC data
     if monte_carlo:
+        hCorr_mc.extend(["hPt_ratio", ComputePurity(hPt, hPt_mc)])
         dir = dir.mkdir("MC")
         dir.cd()
         for i in range(len(hCorr_mc)):
             hCorr_mc[i][1].Write(hCorr_mc[i][0])
 
     output.Close()
+
+def ComputePurity(hPt, hPt_mc):
+    ratio = hPt.Clone("hPt_ratio")
+    ratio.Divide(hPt_mc)
+    return ratio.Clone()
+

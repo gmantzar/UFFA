@@ -76,13 +76,15 @@ class CorrelationHandler:
         if self.__class == 'TH2F':
             self.__inputSE = inputSE.Clone(f'hSame_mult_{self.__name}')
         else:
-            self.__inputSE = self.__se_k = inputSE.Clone(f'hSame_{self.__name}')
+            self.__inputSE =  inputSE.Clone(f'hSame_{self.__name}')
+            self.__se_k = inputSE.Clone(f'hSame_{self.__name}')
 
     def set_me(self, inputME = None):
         if self.__class == 'TH2F':
             self.__inputME = inputME.Clone(f'hMixed_mult_{self.__name}')
         else:
-            self.__inputME = self.__me_k = inputME.Clone(f'hMixed_{self.__name}')
+            self.__inputME = inputME.Clone(f'hMixed_{self.__name}')
+            self.__me_k = inputME.Clone(f'hMixed_{self.__name}')
 
     def self_normalise(self):
         if self.__se_k:
@@ -232,31 +234,31 @@ class CorrelationHandler:
         se_mult_integral = self.__inputSE.Integral()
         me_mult_integral = self.__inputME.Integral()
 
-        se_k = self.__inputSE.ProjectionX("se_k", 1, self.__inputSE.GetNbinsY())
-        se_mult = self.__inputSE.ProjectionY("se_mult", 1, self.__inputSE.GetNbinsX())
+        se_k        =   self.__inputSE.ProjectionX("se_k", 1, self.__inputSE.GetNbinsY())
+        se_mult     =   self.__inputSE.ProjectionY("se_mult", 1, self.__inputSE.GetNbinsX())
 
-        me_k = self.__inputME.ProjectionX("me_k", 1, self.__inputME.GetNbinsY())
-        me_k_unw = me_k.Clone("me_k_unw")
+        me_k        =   self.__inputME.ProjectionX("me_k", 1, self.__inputME.GetNbinsY())
+        me_k_unw    =   self.__inputME.ProjectionX("me_k_unw", 1, self.__inputME.GetNbinsY())
 
-        me_mult = self.__inputME.ProjectionY("me_mult", 1, self.__inputME.GetNbinsX())
-        me_mult_unw = me_mult.Clone("me_mult_unw")
+        me_mult     =   self.__inputME.ProjectionY("me_mult", 1, self.__inputME.GetNbinsX())
+        me_mult_unw =   self.__inputME.ProjectionY("me_mult_unw", 1, self.__inputME.GetNbinsX())
 
         print(self.__inputSE.GetNbinsY())
         for ibin in range(1, self.__inputSE.GetNbinsY()):
             se_bin = self.__inputSE.ProjectionX("se_bin", ibin, ibin)
-            se_bin.Sumw2()
             me_bin = self.__inputME.ProjectionX("me_bin", ibin, ibin)
+            se_bin.Sumw2()
             me_bin.Sumw2()
             se_ratio = se_bin.Integral() / se_mult_integral
             me_ratio = me_bin.Integral() / me_mult_integral
 
             print("Currently at bin", ibin)
-            print(se_ratio)
-            print(me_ratio)
+            print("SE ratio:", se_ratio)
+            print("ME ratio:", me_ratio)
 
             if (me_ratio > 0. and se_ratio > 0.):
                 me_bin.Scale(se_ratio / me_ratio)
-                me_mult.SetBinContent(ibin,me_bin.Integral())
+                me_mult.SetBinContent(ibin, me_bin.Integral())
                 me_k.Add(me_bin,1)
             else:
                 print("Attention: Multiplicity bin", ibin, "has no entries.")
