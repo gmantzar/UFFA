@@ -9,10 +9,13 @@ import FemtoAnalysis as FemtoAnalysis
 ########## LHC18l ##########
 thepath = "~/work/projects/pp_python/"
 #thefilename = "AnalysisResults_22m_pass2_no-offset.root"
-thefilename = "AnalysisResults_18l.root"
+#thefilename = "AnalysisResults.root"
+thefilename = "Merged_AnalysisResults.root"
+#thefilename = "AnalysisResults_18l.root"
 #thefilename = "input_CFOutput_pp.root"
 #thefilename2 = "Task-MC-LHC21k6-protons-full-AnalysisResults.root"
 # saveHistogramms(filepath, filename, new_output, TDir_name, hist_type, monte_carlo, binning)
+#FemtoAnalysis.saveHistogramms(thepath, thefilename, True, "", 5, False)
 FemtoAnalysis.saveHistogramms(thepath, thefilename, True, "", "mult", False)
 #FemtoAnalysis.saveHistogramms(thepath, thefilename2, True, "", "mult", True)
 #FemtoAnalysis.saveHistogramms(thepath, thefilename, False, "_ap-base", "mult", False, [2, 4])

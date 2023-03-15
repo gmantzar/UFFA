@@ -1,5 +1,6 @@
 import ROOT
 import correlation_handler as gentlefemto
+from math import ceil
 
 
 def getCorrelationFunction(infilename, config, hist_type, monte_carlo, rebinfactor):
@@ -30,21 +31,35 @@ def getCorrelationFunction(infilename, config, hist_type, monte_carlo, rebinfact
     # set first bin factor to no rebinning and add other factors
     nobin = [1]
     if rebinfactor:
-        if isinstance(rebinfactor, int):
+        #if isinstance(rebinfactor, int):
+        if type(rebinfactor) == int:
             rebinfactor = [rebinfactor]
         nobin.extend(rebinfactor)
     rebinfactor = nobin
 
-    th2 = ['th2f', 'th2', 'mult', 'kmult']
-    hist_th2 = True if hist_type.lower() in th2 else False
+    mult = ['th2f', 'th2', 'mult', 'kmult']
+    hist_mult = False
+    hist_mt = False
+    if type(hist_type) == int or type(hist_type) == list:
+        hist_mt = True
+        mt_bins = hist_type
+    elif type(hist_type) == str and hist_type.lower() in mult:
+        hist_mult = True
 
-    if hist_th2:
+    if hist_mult:
         if monte_carlo:
             se = directory.Get("SameEventMC/relPairkstarMult")
             me = directory.Get("MixedEventMC/relPairkstarMult")
         else:
             se = directory.Get("SameEvent/relPairkstarMult")
             me = directory.Get("MixedEvent/relPairkstarMult")
+    elif hist_mt:
+        if monte_carlo:
+            se = directory.Get("SameEventMC/relPairkstarmT")
+            me = directory.Get("MixedEventMC/relPairkstarmT")
+        else:
+            se = directory.Get("SameEvent/relPairkstarmT")
+            me = directory.Get("MixedEvent/relPairkstarmT")
     else:
         if monte_carlo:
             se = directory.Get("SameEventMC/relPairDist")
@@ -58,40 +73,85 @@ def getCorrelationFunction(infilename, config, hist_type, monte_carlo, rebinfact
 
     infile.Close()
 
-    histos = []
-    ch = gentlefemto.CorrelationHandler("cf", se, me)
-    if hist_th2:
-        ch.reweight()
-        hMult = [
-                ["hSE_mult", ch.get_se().Clone()],
-                ["hME_mult", ch.get_me().Clone()],
-        ]
-        histos.extend(hMult)
+    # correlation handler
+    if hist_mt:
+        mt_histos = getMtHistos(se, me, mt_bins)
+        histo_lol = []
+        for name, histo in mt_histos:
+            ch = gentlefemto.CorrelationHandler("cf", histo[0], histo[1])
+            ch.make_cf()
+            ch.normalize(0.24, 0.34)
+            histo_lol.extend([[name, ch.get_se().Clone(), ch.get_me().Clone(), ch.get_cf().Clone()]])
+            del ch
+        return histo_lol
+    else:
+        ch = gentlefemto.CorrelationHandler("cf", se, me)
+        histos = []
 
-    for factor in rebinfactor:
-        ch.rebin(factor)
-        ch.make_cf()
-        ch.normalize(0.24, 0.34)
-        if hist_th2:
-            ch.make_cf_unw()
-            ch.normalize_unw(0.24, 0.34)
-
-        conf_text = ""
-        if factor > 1:
-            conf_text += " rebin: " + str(factor)
-        h1 = [
-                ["hSE" + conf_text, ch.get_se_k().Clone()],
-                ["hME" + conf_text, ch.get_me_k().Clone()],
-                ["hCk" + conf_text, ch.get_cf().Clone()],
-        ]
-        histos.extend(h1)
-        if hist_th2:
-            h2 = [
-                    ["hME_unw"+conf_text, ch.get_me_k_unw().Clone()],
-                    ["hCk_unw"+conf_text, ch.get_cf_unw().Clone()],
+        if hist_mult:
+            ch.reweight()
+            hMult = [
+                    ["hSE_mult", ch.get_se().Clone()],
+                    ["hME_mult", ch.get_me().Clone()],
             ]
-            histos.extend(h2)
-        ch.resetbin()
+            histos.extend(hMult)
+
+        for factor in rebinfactor:
+            ch.rebin(factor)
+            ch.make_cf()
+            ch.normalize(0.24, 0.34)
+            if hist_mult:
+                ch.make_cf_unw()
+                ch.normalize_unw(0.24, 0.34)
+
+            conf_text = ""
+            if factor > 1:
+                conf_text += " rebin: " + str(factor)
+            h1 = [
+                    ["hSE" + conf_text, ch.get_se_k().Clone()],
+                    ["hME" + conf_text, ch.get_me_k().Clone()],
+                    ["hCk" + conf_text, ch.get_cf().Clone()],
+            ]
+            histos.extend(h1)
+            if hist_mult:
+                h2 = [
+                        ["hME_unw"+conf_text, ch.get_me_k_unw().Clone()],
+                        ["hCk_unw"+conf_text, ch.get_cf_unw().Clone()],
+                ]
+                histos.extend(h2)
+            ch.resetbin()
+
+    return histos
+
+def getMtHistos(inputSE, inputME, bins):
+
+    xAxis = inputSE.GetXaxis()
+    yAxis = inputSE.GetYaxis()
+
+    # generate list of bins from amount of mt bins or list of mt ranges
+    if type(bins) == int:
+        limits = [binLow]
+        binLow = 1
+        binHigh = inputSE.FindLastBinAbove(0, 2)    # last bin in Y axis with more than 0 counts
+        binWidth = ceil((binHigh - binLow) / bins)
+        for n in range(bins):
+            limits.append((n + 1) * binWidth)
+    elif type(bins) == list:
+        limits = []
+        for mt_value in bins:
+            bin_value = yAxis.FindBin(float(mt_value))
+            limits.append(bin_value)
+    else:
+        print("Error in getMtHistos: bin input \"" + str(bins) + "\"")
+
+    histos = []
+    for n in range(1, len(limits)):
+        name = "mt: " + str(yAxis.GetBinCenter(n - 1)) + "-" + str(yAxis.GetBinCenter(n))
+        se = inputSE.ProjectionX("se_k", limits[n - 1], limits[n])
+        me = inputME.ProjectionX("me_k", limits[n - 1], limits[n])
+        se.SetDirectory(0)
+        me.SetDirectory(0)
+        histos.extend([[name, [se.Clone(), me.Clone()]]])
 
     return histos
 
@@ -119,7 +179,11 @@ def getSingleParticlePlots(infilename, config, monte_carlo = False):
     directory = infile.GetDirectory("femto-dream-pair-task-track-track"+config)
 
     # list of TKey's in subdir
-    subdir = directory.GetDirectory("Tracks_one")
+    if monte_carlo:
+        subdir = directory.GetDirectory("Tracks_one")
+    else:
+        subdir = directory.GetDirectory("Tracks_one")
+
     try:
         lobj = subdir.GetListOfKeys()
     except:
@@ -137,21 +201,9 @@ def getSingleParticlePlots(infilename, config, monte_carlo = False):
     for name, hist in histos:
         hist.SetDirectory(0)
 
-    if monte_carlo:
-        subdir2 = directory.GetDirectory("Tracks_oneMC")
-        lobjMC = subdir2.GetListOfKeys()
-        lobj_entMC = lobjMC.GetEntries()
-        lnkMC = lobjMC.FirstLink()
-        histos2 = []
-        for entry in range(lobj_entMC):
-            histos2.append([lnkMC.GetObject().GetName(), lnkMC.GetObject().ReadObj()])
-            lnkMC = lnkMC.Next()
-        for name, hist in histos2:
-            hist.SetDirectory(0)
-
     infile.Close()
 
-    return (histos, histos2) if monte_carlo else histos
+    return histos
 
 def getEventHistos(infilename, config):
     """
@@ -198,6 +250,11 @@ def getEventHistos(infilename, config):
 
     return histos
 
+def getPurity(hPt, hPt_mc):
+    ratio = hPt.Clone("hPt_ratio")
+    ratio.Divide(hPt_mc)
+    return ratio.Clone()
+
 def saveHistogramms(path, filename, newfile, config, hist_type = 'TH1F', monte_carlo = False, rebin = None):
     """
     Function to save the histogramms of an "AnalysisResults.root" file to a new file.
@@ -226,53 +283,42 @@ def saveHistogramms(path, filename, newfile, config, hist_type = 'TH1F', monte_c
     no output.. just saving the new root file
     """
 
+    # test if the input is set as mt/k* plot
+    hist_mt = False
+    if type(hist_type) == int or type(hist_type) == list:
+        hist_mt = True
+
     infile = path+filename
 
     # Get the histogramms from the input file
-    correlationHistos = getCorrelationFunction(infile, config, hist_type, 0, rebin)
+    hCorr = getCorrelationFunction(infile, config, hist_type, 0, rebin)
+    hTrack = getSingleParticlePlots(infile, config, 0)
+    hEvent = getEventHistos(infile, config)
 
     if monte_carlo:
-        hCorr_mc = getCorrelationFunction(infile, config, hist_type, 1, rebin)
-        hTrack, hTrackMC = getSingleParticlePlots(infile, config, monte_carlo)
-        hCorr_mc.extend(hTrackMC)
-        for n in range(len(hCorr_mc)):
-            name = hCorr_mc[n][0]
-            if name == "hPt":
-                hPt_mc = hCorr_mc[n][1]
-    else:
-        hTrack = getSingleParticlePlots(infile, config, monte_carlo)
+        hCorrMC = getCorrelationFunction(infile, config, hist_type, 1, rebin)
+        hTrackMC = getSingleParticlePlots(infile, config, 1)
 
-    eventHistos = getEventHistos(infile, config)
+        for name, histo in (hCorrMC + hTrackMC):
+            if name == "hPt":
+                hPt_mc = histo
 
     histos = []
-    histos.extend(correlationHistos)
+    histos.extend(hCorr)
     try:
         histos.extend(hTrack)
-        histos.extend(eventHistos)
+        histos.extend(hEvent)
+        for name, histo in (hTrack + hEvent):
+            if name == "hPt":
+                TPC_Int = histo.Integral(0, histo.FindBin(0.75))
+                hPt = histo
+            if name == "zvtxhist":
+                zvtx_Events = histo.GetEntries()
     except:
         pass
 
-    for n in range(len(histos)):
-        name = histos[n][0]
-        if name == "hPt":
-            TPC_Int = histos[n][1].Integral(0, histos[n][1].FindBin(0.75))
-            hPt = histos[n][1]
-        if name == "zvtxhist":
-            zvtx_Events = histos[n][1].GetEntries()
-
-
-    # print here some interesting numbers like number of pairs in a certain k^* region, number of events, etc.
-    print("\n### Getting file", filename, "###")
-    print("Number of Events:\n", histos[0][1].GetEntries())
-    try:
-        print("nTPC/nEvents:\n", TPC_Int/zvtx_Events)
-        print("Number of pairs in the low k* region:\n", histos[0][1].Integral(1, histos[0][1].FindBin(0.2)))
-    except:
-        pass
-
-
+    # save file
     fileaction = "recreate" if newfile else "update"
-
     outfile = path+"UFFA_"+filename
     output = ROOT.TFile(outfile, fileaction)
 
@@ -280,24 +326,30 @@ def saveHistogramms(path, filename, newfile, config, hist_type = 'TH1F', monte_c
         dir = output.mkdir("_std")
     else:
         dir = output.mkdir(config)
-
     dir.cd()
 
-    for i in range(len(histos)):
-        histos[i][1].Write(histos[i][0])
+    if hist_mt:
+        for name, se, me, cf in hCorr:
+            mt_dir = dir.mkdir(name)
+            mt_dir.cd()
+            se.Write("hSE " + name)
+            me.Write("hME " + name)
+            cf.Write("hCF " + name)
+            dir.cd()
+        for name, histo in (hTrack + hEvent):
+            histo.Write(name)
+    else:
+        for name, histo in (hCorr + hTrack + hEvent):
+            histo.Write(name)
 
     # Subdir in same TDirectory for MC data
     if monte_carlo:
-        hCorr_mc.extend(["hPt_ratio", ComputePurity(hPt, hPt_mc)])
-        dir = dir.mkdir("MC")
-        dir.cd()
-        for i in range(len(hCorr_mc)):
-            hCorr_mc[i][1].Write(hCorr_mc[i][0])
+        dir_mc = dir.mkdir("MC")
+        dir_mc.cd()
+        for name, histo in (hCorrMC + hTrackMC):
+            histo.Write(name)
+        hPurity = getPurity(hPt, hPt_mc)
+        hPurity.Write("hPt_ratio")
 
     output.Close()
-
-def ComputePurity(hPt, hPt_mc):
-    ratio = hPt.Clone("hPt_ratio")
-    ratio.Divide(hPt_mc)
-    return ratio.Clone()
 
