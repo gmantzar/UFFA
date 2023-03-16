@@ -161,8 +161,6 @@ def getBinRangeHistos(inputSE, inputME, bins):
         name = "%.2f-%.2f" % (yAxis.GetBinCenter(limits[n - 1]), yAxis.GetBinCenter(limits[n]))
         se = inputSE.ProjectionX("se_k", limits[n - 1], limits[n])
         me = inputME.ProjectionX("me_k", limits[n - 1], limits[n])
-        se.SetDirectory(0)
-        me.SetDirectory(0)
         histos.append([name, [se.Clone(), me.Clone()]])
 
     return histos
