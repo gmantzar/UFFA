@@ -48,8 +48,10 @@ def getCorrelationFunction(infilename, config, hist_type, monte_carlo, binning, 
         mt_bins = binning
     if hist_type.lower() in mult_keywords:
         hist_mult = True
+        conf = "mult: "
     elif hist_type.lower() in mt_keywords:
         hist_mt = True
+        conf = "mt: "
 
     if hist_mult:
         if monte_carlo:
@@ -87,7 +89,7 @@ def getCorrelationFunction(infilename, config, hist_type, monte_carlo, binning, 
             ch = gentlefemto.CorrelationHandler("cf", histo[0], histo[1])
             ch.make_cf()
             ch.normalize(0.24, 0.34)
-            histo_lol.extend([[name, ch.get_se().Clone(), ch.get_me().Clone(), ch.get_cf().Clone()]])
+            histo_lol.extend([[conf + name, ch.get_se().Clone(), ch.get_me().Clone(), ch.get_cf().Clone()]])
             del ch
         return histo_lol
     # mt integrated
