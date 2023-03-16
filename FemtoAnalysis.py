@@ -3,7 +3,7 @@ import correlation_handler as gentlefemto
 from math import ceil
 
 
-def getCorrelationFunction(infilename, config, hist_type, monte_carlo, rebinfactor):
+def getCorrelationFunction(infilename, config, hist_type, monte_carlo, binning, rebinfactor):
 
     """
     Function to get the same event (se) and mixed event (me) distribution and calculate the
@@ -37,14 +37,19 @@ def getCorrelationFunction(infilename, config, hist_type, monte_carlo, rebinfact
         nobin.extend(rebinfactor)
     rebinfactor = nobin
 
-    mult = ['th2f', 'th2', 'mult', 'kmult']
+    mult_keywords = ['mult', 'kmult']
+    mt_keywords = ['mt', 'mtk', 'kmt']
+    hist_bin = False
     hist_mult = False
     hist_mt = False
-    if type(hist_type) == int or type(hist_type) == list:
-        hist_mt = True
-        mt_bins = hist_type
-    elif type(hist_type) == str and hist_type.lower() in mult:
+
+    if type(binning) == int or type(binning) == list:
+        hist_bin = True
+        mt_bins = binning
+    if hist_type.lower() in mult_keywords:
         hist_mult = True
+    elif hist_type.lower() in mt_keywords:
+        hist_mt = True
 
     if hist_mult:
         if monte_carlo:
@@ -74,7 +79,8 @@ def getCorrelationFunction(infilename, config, hist_type, monte_carlo, rebinfact
     infile.Close()
 
     # correlation handler
-    if hist_mt:
+    # mt differential
+    if hist_bin:
         mt_histos = getBinRangeHistos(se, me, mt_bins)
         histo_lol = []
         for name, histo in mt_histos:
@@ -84,6 +90,7 @@ def getCorrelationFunction(infilename, config, hist_type, monte_carlo, rebinfact
             histo_lol.extend([[name, ch.get_se().Clone(), ch.get_me().Clone(), ch.get_cf().Clone()]])
             del ch
         return histo_lol
+    # mt integrated
     else:
         ch = gentlefemto.CorrelationHandler("cf", se, me)
         histos = []
@@ -149,7 +156,7 @@ def getBinRangeHistos(inputSE, inputME, bins):
 
     histos = []
     for n in range(1, len(limits)):
-        name = "mt: %.2f-%.2f" % (yAxis.GetBinCenter(limits[n - 1]), yAxis.GetBinCenter(limits[n]))
+        name = "%.2f-%.2f" % (yAxis.GetBinCenter(limits[n - 1]), yAxis.GetBinCenter(limits[n]))
         se = inputSE.ProjectionX("se_k", limits[n - 1], limits[n])
         me = inputME.ProjectionX("me_k", limits[n - 1], limits[n])
         se.SetDirectory(0)
@@ -258,7 +265,7 @@ def getPurity(hPt, hPt_mc):
     ratio.Divide(hPt_mc)
     return ratio.Clone()
 
-def saveHistogramms(path, filename, newfile, config, hist_type = 'TH1F', monte_carlo = False, rebin = None):
+def saveHistogramms(path, filename, newfile, config, hist_type = 'TH1F', monte_carlo = False, binning = None, rebin = None):
     """
     Function to save the histogramms of an "AnalysisResults.root" file to a new file.
     Its name is the name of the infput file with the prefix "GF-output_".
@@ -286,20 +293,15 @@ def saveHistogramms(path, filename, newfile, config, hist_type = 'TH1F', monte_c
     no output.. just saving the new root file
     """
 
-    # test if the input is set as mt/k* plot
-    hist_mt = False
-    if type(hist_type) == int or type(hist_type) == list:
-        hist_mt = True
-
     infile = path+filename
 
     # Get the histogramms from the input file
-    hCorr = getCorrelationFunction(infile, config, hist_type, 0, rebin)
+    hCorr = getCorrelationFunction(infile, config, hist_type, 0, binning, rebin)
     hTrack = getSingleParticlePlots(infile, config, 0)
     hEvent = getEventHistos(infile, config)
 
     if monte_carlo:
-        hCorrMC = getCorrelationFunction(infile, config, hist_type, 1, rebin)
+        hCorrMC = getCorrelationFunction(infile, config, hist_type, 1, binning, rebin)
         hTrackMC = getSingleParticlePlots(infile, config, 1)
 
         for name, histo in (hCorrMC + hTrackMC):
@@ -331,7 +333,7 @@ def saveHistogramms(path, filename, newfile, config, hist_type = 'TH1F', monte_c
         dir = output.mkdir(config)
     dir.cd()
 
-    if hist_mt:
+    if binning:
         for name, se, me, cf in hCorr:
             mt_dir = dir.mkdir(name)
             mt_dir.cd()
