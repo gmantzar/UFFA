@@ -75,7 +75,7 @@ def getCorrelationFunction(infilename, config, hist_type, monte_carlo, rebinfact
 
     # correlation handler
     if hist_mt:
-        mt_histos = getMtHistos(se, me, mt_bins)
+        mt_histos = getBinRangeHistos(se, me, mt_bins)
         histo_lol = []
         for name, histo in mt_histos:
             ch = gentlefemto.CorrelationHandler("cf", histo[0], histo[1])
@@ -123,7 +123,10 @@ def getCorrelationFunction(infilename, config, hist_type, monte_carlo, rebinfact
 
     return histos
 
-def getMtHistos(inputSE, inputME, bins):
+def getBinRangeHistos(inputSE, inputME, bins):
+
+    inputSE.SetDirectory(0)
+    inputME.SetDirectory(0)
 
     xAxis = inputSE.GetXaxis()
     yAxis = inputSE.GetYaxis()
@@ -142,16 +145,16 @@ def getMtHistos(inputSE, inputME, bins):
             bin_value = yAxis.FindBin(float(mt_value))
             limits.append(bin_value)
     else:
-        print("Error in getMtHistos: bin input \"" + str(bins) + "\"")
+        print("Error in getBinRangeHistos: bin input \"" + str(bins) + "\"")
 
     histos = []
     for n in range(1, len(limits)):
-        name = "mt: " + str(yAxis.GetBinCenter(n - 1)) + "-" + str(yAxis.GetBinCenter(n))
+        name = "mt: %.2f-%.2f" % (yAxis.GetBinCenter(limits[n - 1]), yAxis.GetBinCenter(limits[n]))
         se = inputSE.ProjectionX("se_k", limits[n - 1], limits[n])
         me = inputME.ProjectionX("me_k", limits[n - 1], limits[n])
         se.SetDirectory(0)
         me.SetDirectory(0)
-        histos.extend([[name, [se.Clone(), me.Clone()]]])
+        histos.append([name, [se.Clone(), me.Clone()]])
 
     return histos
 
@@ -180,7 +183,7 @@ def getSingleParticlePlots(infilename, config, monte_carlo = False):
 
     # list of TKey's in subdir
     if monte_carlo:
-        subdir = directory.GetDirectory("Tracks_one")
+        subdir = directory.GetDirectory("Tracks_oneMC")
     else:
         subdir = directory.GetDirectory("Tracks_one")
 
