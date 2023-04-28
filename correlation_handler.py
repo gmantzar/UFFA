@@ -52,7 +52,7 @@ class CorrelationHandler:
         self.__cf = None
 
         if inputSE:
-            if inputSE.ClassName() == 'TH2F':
+            if inputSE.InheritsFrom("TH2"):
                 self.__class = 'TH2F'
                 self.set_se(inputSE)
                 self.__se_mult = None
@@ -228,7 +228,7 @@ class CorrelationHandler:
             logging.error('Compute the unweighted correlation function first')
 
     def reweight(self):
-        if not self.__class == 'TH2F':
+        if self.__class != 'TH2F':
             print("Error in reweight(): Input is not a TH2F k* vs multiplicity distribution")
             return
         se_mult_integral = self.__inputSE.Integral()
@@ -269,7 +269,6 @@ class CorrelationHandler:
         self.__me_mult = me_mult
         self.__me_k_unw = me_k_unw
         self.__me_mult_unw = me_mult_unw
-
 
     ###   Getter functions   ###
     # Histogramms for same event distribution

@@ -31,7 +31,6 @@ def getCorrelationFunction(infilename, config, hist_type, monte_carlo, binning, 
     # set first bin factor to no rebinning and add other factors
     nobin = [1]
     if rebinfactor:
-        #if isinstance(rebinfactor, int):
         if type(rebinfactor) == int:
             rebinfactor = [rebinfactor]
         nobin.extend(rebinfactor)
@@ -81,7 +80,7 @@ def getCorrelationFunction(infilename, config, hist_type, monte_carlo, binning, 
     infile.Close()
 
     # correlation handler
-    # mt differential
+    # differential
     if hist_bin:
         mt_histos = getBinRangeHistos(se, me, mt_bins)
         histo_lol = []
@@ -92,7 +91,7 @@ def getCorrelationFunction(infilename, config, hist_type, monte_carlo, binning, 
             histo_lol.extend([[conf + name, ch.get_se().Clone(), ch.get_me().Clone(), ch.get_cf().Clone()]])
             del ch
         return histo_lol
-    # mt integrated
+    # integrated
     else:
         ch = gentlefemto.CorrelationHandler("cf", se, me)
         histos = []
