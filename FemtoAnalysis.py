@@ -188,7 +188,7 @@ class FemtoDreamSaver():
                     self._write(hist_unw_mc)
                 if self._rebin:         # rebin directories in main directory
                     for n in range(len(self._rebin)):
-                        dir_rebin = dir_root.mkdir("rebin: " + str(self._rebin[n]))
+                        dir_rebin = dir_mc.mkdir("rebin: " + str(self._rebin[n]))
                         dir_rebin.cd()
                         self._write(hist_std_mc[n + 2])
                         if self._htype == 2:
@@ -224,14 +224,16 @@ class FemtoDreamSaver():
                 for n in range(len(self._bins) - 1):    # list: [1, 2, 3, 4] -> ranges: [1-2, 2-3, 3-4]
                     dir_bin = dir_mc.mkdir("bin: " + str(n + 1))
                     dir_bin.cd()
-                    self._write(hist_std_mc[1 + 2*n])
                     if self._rebin:     # rebin directories inside each mt/mult bin directory
+                        self._write(hist_std_mc[1 + 2*n])
                         for m in range(len(self._rebin)):
                             dir_rebin = dir_bin.mkdir("rebin: " + str(self._rebin[m]))
                             dir_rebin.cd()
                             self._write(hist_std[2 + 2*n][m])
                             dir_bin.cd()
                             del dir_rebin
+                    else:
+                        self._write(hist_std[1 + n])
                     dir_mc.cd()
                     del dir_bin
                 dir_root.cd()
