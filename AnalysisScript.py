@@ -32,13 +32,13 @@ import FemtoAnalysis as FA
 
 path = ""
 
+file = "AnalysisResults.root"
 #file = "AnalysisResults_22m_pass2_no-offset.root"
-#file = "AnalysisResults.root"
 #file = "AnalysisResults_18l.root"
 #file = "input_CFOutput_pp.root"
-file = "Task-MC-LHC21k6-protons-full-AnalysisResults.root"
+#file = "Task-MC-LHC21k6-protons-full-AnalysisResults.root"
 
-#FA.UFFA_pp(path, file, "", 1, 1, 1, False, False, False)
+FA.UFFA_pp(path, file, "", 1, 1, 1, False, False, False)
 #FA.UFFA_pp(path, file, "", 1, 1, 1, True, False, False)
 #FA.UFFA_pp(path, file, "", 1, 1, 1, True, False, 5)
 #FA.UFFA_pp(path, file, "", 1, 1, 1, True, False, [2, 3, 5])

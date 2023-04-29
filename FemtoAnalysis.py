@@ -107,15 +107,10 @@ class FemtoDreamSaver():
     def _file_exists(self, file):
         if not ROOT.gSystem.AccessPathName(file):
             name, ext = file.rsplit('.')
-            name_n = name[-1]
-            minus = name[-2]
-            if minus == '-' and name_n.isdigit():
-                name_n = int(name_n) + 1
-                name = name[:-1] + str(name_n)
-            else:
-                name += "-1"
-            file = name + '.' + ext
-            file = self._file_exists(file)
+            digit = 1
+            while not ROOT.gSystem.AccessPathName(name + '-' + str(digit) + '.' + ext):
+                digit += 1
+            file = name + '-' + str(digit) + '.' + ext
         return file
 
     # function that saves all the histos in the correct file format
