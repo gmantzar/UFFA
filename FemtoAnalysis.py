@@ -410,7 +410,7 @@ def getIntegrated(se, me, hist_type, rebin):
                 me_rebin = rebin_hist(me, factor)
                 rebin_conf = " rebin: " + str(factor)
                 se_rebin, me_rebin, cf_rebin = getCorrelation(se_rebin, me_rebin, "rebin: " + str(factor), rebin_conf)
-                histos_rebin.append([me_rebin, cf_rebin])
+                histos_rebin.append([me_rebin.Clone("ME unw"), cf_rebin.Clone("CF unw")])
             histos_unw.append(histos_rebin)
 
     return histos, histos_unw
