@@ -7,10 +7,12 @@ class FemtoDreamReader(FR.FileReader):
         FR.FileReader.__init__(self, ifile, directory)
         # define "" as your default directory
         if directory == "":
-            self._dir = self._ifile.GetDirectory("femto-dream-pair-task-track-track"+directory)
+            self._dir = self._ifile.GetDirectory("femto-dream-pair-task-track-track")
             # set directory from file if not default convention
-            if not self._dir:
-                self._dir = self._ifile.GetDirectory(directory)
+        else:
+            self._dir = self._ifile.GetDirectory("femto-dream-pair-task-track-track"+directory)
+        if not self._dir:
+            self._dir = self._ifile.GetDirectory(directory)
 
     ### Getter Functions ###
     def get_pt(self):
