@@ -48,10 +48,13 @@ class cf_handler():
             self._se, self._me = self._file.get_kmt()
             if self._mc:
                 self._se_mc, self._me_mc = self._file.get_kmt_mc()
-        self._event = self._file.get_event()        # event histos
-        self._tracks = self._file.get_tracks()      # track histos
-        if self._mc:
-            self._tracks_mc = self._file.get_tracks_mc()
+        try:
+            self._event = self._file.get_event()        # event histos
+            self._tracks = self._file.get_tracks()      # track histos
+            if self._mc:
+                self._tracks_mc = self._file.get_tracks_mc()
+        except:
+            pass
 
     # computes the cf for integrated or differential analysis and for mc data
     # and returns the histos for all the different options
@@ -61,8 +64,6 @@ class cf_handler():
         histos_mc = []
         histos_unw = []
         histos_unw_mc = []
-        hPt = self._tracks[0]
-        hPt_mc = None
         if self._atype == 1:        # integrated analysis
             histos, histos_unw = getIntegrated(self._se, self._me, self._htype, self._rebin)
             if self._mc:
@@ -99,7 +100,10 @@ class FemtoDreamSaver():
     def _mkdir_write(self, dir_root, dir_name, histos):
         dir_new = dir_root.mkdir(dir_name)
         dir_new.cd()
-        self._write(histos)
+        try:
+            self._write(histos)
+        except:
+            pass
         dir_root.cd()
         del dir_new
 
