@@ -125,8 +125,10 @@ class FemtoDreamSaver():
             new_name = self._file_exists(self._opath + "UFFA_" + self._ofile)
             print(new_name + " created!")
             self._ofile = new_name
+            ofile_name = self._opath + self._ofile
+        else:
+            ofile_name = self._opath + "UFFA_" + self._ofile
 
-        ofile_name = self._opath + self._ofile
         ofile = ROOT.TFile(ofile_name, self._newfile)
 
         if self._atype == 1:        # integrated
@@ -153,7 +155,7 @@ class FemtoDreamSaver():
             hist_track_mc = self._histos[6]
             hist_pur = getPurity(hist_track[0], hist_track_mc[0])
 
-        if not self._odir:
+        if self._odir == "" or self._odir == "femto-dream-pair-task-track-track":
             dir_root = ofile.mkdir("_std")
         else:
             dir_root = ofile.mkdir(self._odir)
