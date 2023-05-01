@@ -134,15 +134,12 @@ class FemtoDreamSaver():
             hist_unw = self._histos[1]      # [[me unw, cf unw], [me unw rebin1, cf unw rebin1], ...]
             hist_in  = hist_std[0]          # [iSE, iME]
             hist_smc = hist_std[1]          # [se, me, cf]
-            if self._htype == 2:
-                hist_unw = hist_unw[0]      # [me unw, cf unw]
             if self._mc:            # monte carlo
                 hist_std_mc = self._histos[2]
                 hist_in_mc  = hist_std_mc[0]
                 hist_smc_mc = hist_std_mc[1]
                 if self._htype == 2:
                     hist_unw_mc = self._histos[3]
-                    hist_unw_mc = hist_unw_mc[0]
         elif self._atype == 2:      # differential
             hist_std = self._histos[0]      # [[iSE, iME], [se, me, cf], [[se rebin1, me rebin1, cf rebin1], ...], ...]
             hist_in  = hist_std[0]          # [iSE, iME]
@@ -166,14 +163,14 @@ class FemtoDreamSaver():
             self._write(hist_in)        # iSE, iME
             self._write(hist_smc)       # se, me, cf
             if self._htype == 2:
-                self._write(hist_unw)   # me unw, cf unw
+                self._write(hist_unw[0])   # me unw, cf unw
             if self._rebin:             # all rebinned se, me, cf, me unw, cf unw, in individual directories
                 for n in range(len(self._rebin)):
                     dir_rebin = dir_root.mkdir("rebin: " + str(self._rebin[n]))
                     dir_rebin.cd()
-                    self._write(hist_std[n + 2])        # [[iSE, iME], [no rebin], [1st rebin], [2nd rebin], ...]
+                    self._write(hist_std[2][n])        # [[iSE, iME], [no rebin], [1st rebin], [2nd rebin], ...]
                     if self._htype == 2:
-                        self._write(hist_unw[n + 1])    # [[no rebin], [1st rebin], [2nd rebin], ...]
+                        self._write(hist_unw[1][n])    # [[no rebin], [1st rebin], [2nd rebin], ...]
                     dir_root.cd()
                     del dir_rebin
             self._mkdir_write(dir_root, "Event", hist_event)
@@ -184,19 +181,20 @@ class FemtoDreamSaver():
                 self._write(hist_in_mc)
                 self._write(hist_smc_mc)
                 if self._htype == 2:
-                    self._write(hist_unw_mc)
+                    self._write(hist_unw_mc[0])
                 if self._rebin:         # rebin directories in main directory
                     for n in range(len(self._rebin)):
                         dir_rebin = dir_mc.mkdir("rebin: " + str(self._rebin[n]))
                         dir_rebin.cd()
-                        self._write(hist_std_mc[n + 2])
+                        self._write(hist_std_mc[2][n])
                         if self._htype == 2:
-                            self._write(hist_unw_mc[n + 1])
+                            self._write(hist_unw_mc[1][n])
                         dir_mc.cd()
                         del dir_rebin
                 self._mkdir_write(dir_mc, "Tracks_oneMC", hist_track_mc)
                 dir_root.cd()
                 hist_pur.Write()
+
         elif self._atype == 2:          # differential
             self._write(hist_in)
             for n in range(len(self._bins) - 1):    # list: [1, 2, 3, 4] -> ranges: [1-2, 2-3, 3-4]
@@ -395,21 +393,25 @@ def getIntegrated(se, me, hist_type, rebin):
 
     histos.append(getCorrelation(se, me, "cf", ""))
     if rebin:               # append rebinned histos to list of histos
+        histos_rebin = []
         for factor in rebin:
             se_rebin = rebin_hist(se, factor)
             me_rebin = rebin_hist(me, factor)
             rebin_conf = " rebin: " + str(factor)
-            histos.append(getCorrelation(se_rebin, me_rebin, "rebin: " + str(factor), rebin_conf))
+            histos_rebin.append(getCorrelation(se_rebin, me_rebin, "rebin: " + str(factor), rebin_conf))
+        histos.append(histos_rebin)
     if hist_type == 2:      # 2nd list with unweighted histos
         se, me, cf = getCorrelation(se, me_unw, "cf_unw", "unweighted")
         histos_unw.append([me.Clone("ME unw"), cf.Clone("CF unw")])
         if rebin:           # append rebinned histos to list of histos
+            histos_rebin = []
             for factor in rebin:
                 se_rebin = rebin_hist(se, factor)
                 me_rebin = rebin_hist(me, factor)
                 rebin_conf = " rebin: " + str(factor)
                 se_rebin, me_rebin, cf_rebin = getCorrelation(se_rebin, me_rebin, "rebin: " + str(factor), rebin_conf)
-                histos_unw.append([me_rebin, cf_rebin])
+                histos_rebin.append([me_rebin, cf_rebin])
+            histos_unw.append(histos_rebin)
 
     return histos, histos_unw
 
