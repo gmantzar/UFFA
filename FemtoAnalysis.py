@@ -77,6 +77,17 @@ class cf_handler():
 
 # class that handles the saving of the histograms in the correct file structure
 class FemtoDreamSaver():
+    last_edit = None
+
+    @classmethod
+    def update(cls, last_file):
+        cls.last_edit = last_file
+
+    @classmethod
+    def last_file(cls):
+        return cls.last_edit
+
+
     def __init__(self, ofile, histos, conf):
         self._ofile = ofile     # output file name
         self._histos = histos   # all histos from the cf_handler
@@ -126,9 +137,12 @@ class FemtoDreamSaver():
             print(new_name + " created!")
             self._ofile = new_name
             ofile_name = self._opath + self._ofile
+            FemtoDreamSaver.last_edit = ofile_name
         else:
             ofile_name = self._opath + "UFFA_" + self._ofile
 
+        if FemtoDreamSaver.last_edit:
+            ofile_name = FemtoDreamSaver.last_edit
         ofile = ROOT.TFile(ofile_name, self._newfile)
 
         if self._atype == 1:        # integrated
