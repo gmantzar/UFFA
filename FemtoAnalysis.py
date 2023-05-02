@@ -430,9 +430,11 @@ def reweight(iSE, iME):
 
     se_k = iSE.ProjectionX("se_k", 1, iSE.GetNbinsY())
     me_k = iSE.ProjectionX("me_k", 1, iME.GetNbinsY())
+    me_k.Reset()
 
     se_mult = iSE.ProjectionY("se_mult", 1, iSE.GetNbinsX())
     me_mult = iME.ProjectionY("me_mult", 1, iME.GetNbinsX())
+    me_mult.Reset()
 
     me_k_unw = iME.ProjectionX("me_k_unw", 1, iME.GetNbinsY())
     me_mult_unw = iME.ProjectionY("me_mult_unw", 1, iME.GetNbinsX())
