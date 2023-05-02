@@ -79,15 +79,6 @@ class cf_handler():
 class FemtoDreamSaver():
     last_edit = None
 
-    @classmethod
-    def update(cls, last_file):
-        cls.last_edit = last_file
-
-    @classmethod
-    def last_file(cls):
-        return cls.last_edit
-
-
     def __init__(self, ofile, histos, conf):
         self._ofile = ofile     # output file name
         self._histos = histos   # all histos from the cf_handler
