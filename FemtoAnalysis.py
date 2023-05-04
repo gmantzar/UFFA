@@ -201,7 +201,7 @@ class FemtoDreamSaver():
                             self._write(hist_unw_mc[1][n])
                         dir_mc.cd()
                         del dir_rebin
-                self._mkdir_write(dir_root, "Tracks_oneMC", hist_track_mc)
+                self._mkdir_write(dir_root, "Tracks_one_MC", hist_track_mc)
                 hist_pur.Write()
 
         elif self._atype == 2:          # differential
@@ -242,7 +242,7 @@ class FemtoDreamSaver():
                         self._write(hist_std[1 + n])
                     del dir_bin
                 del dir_mc
-                self._mkdir_write(dir_root, "Tracks_oneMC", hist_track_mc)
+                self._mkdir_write(dir_root, "Tracks_one_MC", hist_track_mc)
 
 # generates list with rebin factors
 def bin2list(rebin):
