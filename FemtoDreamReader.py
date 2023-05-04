@@ -19,7 +19,7 @@ class FemtoDreamReader(FR.FileReader):
         return self.get_histo("hPt", "Tracks_one")
 
     def get_pt_mc(self):
-        return self.get_histo("hPt", "Tracks_oneMC")
+        return self.get_histo("hPt", "Tracks_one_MC")
 
     def get_dca(self):
         return self.get_histo("hDCAxy", "Tracks_one")
@@ -34,7 +34,7 @@ class FemtoDreamReader(FR.FileReader):
         return self.get_histos("Tracks_one")
 
     def get_tracks_mc(self):
-        return self.get_histos("Tracks_oneMC")
+        return self.get_histos("Tracks_one_MC")
 
     def get_se(self):
         return self.get_histo("relPairDist", "SameEvent")
@@ -46,16 +46,16 @@ class FemtoDreamReader(FR.FileReader):
         return self.get_histo("relPairDist", "SameEvent"), self.get_histo("relPairDist", "MixedEvent")
 
     def get_kstar_mc(self):
-        return self.get_histo("relPairDist", "SameEventMC"), self.get_histo("relPairDist", "MixedEventMC")
+        return self.get_histo("relPairDist", "SameEvent_MC"), self.get_histo("relPairDist", "MixedEvent_MC")
 
     def get_kmt(self):
         return self.get_histo("relPairkstarmT", "SameEvent"), self.get_histo("relPairkstarmT", "MixedEvent")
 
     def get_kmt_mc(self):
-        return self.get_histo("relPairkstarmT", "SameEventMC"), self.get_histo("relPairkstarmT", "MixedEventMC")
+        return self.get_histo("relPairkstarmT", "SameEvent_MC"), self.get_histo("relPairkstarmT", "MixedEvent_MC")
 
     def get_kmult(self):
         return self.get_histo("relPairkstarMult", "SameEvent"), self.get_histo("relPairkstarMult", "MixedEvent")
 
     def get_kmult_mc(self):
-        return self.get_histo("relPairkstarMult", "SameEventMC"), self.get_histo("relPairkstarMult", "MixedEventMC")
+        return self.get_histo("relPairkstarMult", "SameEvent_MC"), self.get_histo("relPairkstarMult", "MixedEvent_MC")
