@@ -128,7 +128,7 @@ class FemtoDreamSaver():
             print(new_name + " created!")
             self._ofile = new_name
             ofile_name = self._opath + self._ofile
-            FemtoDreamSaver.last_edit = ofile_name
+            FemtoDreamSaver.last_edit = self._ofile
         else:
             ofile_name = self._opath + "UFFA_" + self._ofile
 
