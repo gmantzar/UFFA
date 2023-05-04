@@ -2,17 +2,12 @@ import ROOT
 import FileReader as FR
 
 class FemtoDreamReader(FR.FileReader):
-
     def __init__(self, ifile, directory = None):
-        FR.FileReader.__init__(self, ifile, directory)
-        # define "" as your default directory
         if directory == "":
-            self._dir = self._ifile.GetDirectory("femto-dream-pair-task-track-track")
-            # set directory from file if not default convention
-        else:
-            self._dir = self._ifile.GetDirectory("femto-dream-pair-task-track-track"+directory)
-        if not self._dir:
-            self._dir = self._ifile.GetDirectory(directory)
+            directory = "femto-dream-pair-task-track-track"
+        elif directory[0] == '_':
+            directory =="femto-dream-pair-task-track-track" + directory
+        FR.FileReader.__init__(self, ifile, directory)
 
     ### Getter Functions ###
     def get_pt(self):
