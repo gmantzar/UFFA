@@ -15,6 +15,10 @@ def UFFA_pp(dirIn, fname, fdir, new_file, atype, htype, mc = False, bins = False
     fds = FemtoDreamSaver(ch.get_histos(), conf)
     ############
 
+def TemplateFit(dirIn, fname, nfile, htype, bins, dirOut = None):
+    conf = config(dirIn, dirOut, fname, False, nfile, False, htype, False, bins, False)
+
+
 # class that handles the retrieving of histos and computing of correlation functions
 class cf_handler():
     def __init__(self, FileReader, conf):
@@ -197,8 +201,7 @@ class FemtoDreamSaver():
                             self._write(hist_unw_mc[1][n])
                         dir_mc.cd()
                         del dir_rebin
-                self._mkdir_write(dir_mc, "Tracks_oneMC", hist_track_mc)
-                dir_root.cd()
+                self._mkdir_write(dir_root, "Tracks_oneMC", hist_track_mc)
                 hist_pur.Write()
 
         elif self._atype == 2:          # differential
@@ -237,10 +240,9 @@ class FemtoDreamSaver():
                             del dir_rebin
                     else:
                         self._write(hist_std[1 + n])
-                    dir_mc.cd()
                     del dir_bin
-                dir_root.cd()
                 del dir_mc
+                self._mkdir_write(dir_root, "Tracks_oneMC", hist_track_mc)
 
 # generates list with rebin factors
 def bin2list(rebin):
@@ -268,15 +270,16 @@ def config(dirIn, dirOut, fname, fdir, new_file, atype, htype, mc, bins, rebin):
     if ROOT.gSystem.AccessPathName(ipath + iname):
         print("file \"" + ipath + iname + "\" not found!")
         exit()
-    idir = fdir             # TDirectory in file
+
+    if not fdir:
+        idir = ""
+    else:
+        idir = fdir             # TDirectory in file
+
     if not dirOut:
         dirOut = dirIn
     if ROOT.gSystem.AccessPathName(dirOut):
         print("output directory \"" + dirOut + "\" does not exist!")
-        exit()
-
-    if new_file not in [1, 2, 3]:
-        print("\nInput error:\tWrong 'new_file' option!\nOptions:\n\t1 -> \"new\"\n\t2 -> \"recreate\"\n\t3 -> \"update\"\n")
         exit()
 
     if new_file == 1:
@@ -285,6 +288,9 @@ def config(dirIn, dirOut, fname, fdir, new_file, atype, htype, mc, bins, rebin):
         new_file = "recreate"
     elif new_file == 3:
         new_file = "update"
+    else:
+        print("\nInput error:\tWrong 'new_file' option!\nOptions:\n\t1 -> \"new\"\n\t2 -> \"recreate\"\n\t3 -> \"update\"\n")
+        exit()
 
     # analysis type
     atype = str(atype).lower()
@@ -293,8 +299,7 @@ def config(dirIn, dirOut, fname, fdir, new_file, atype, htype, mc, bins, rebin):
     elif atype in dif_keys:
         atype = 2
     else:
-        print("\nInput error:\tWrong analysis type!\nOptions:\n\tintegrated: \t'int', 'integrated', 1 \n\tdifferential: \t'dif', 'differential', 2\n")
-        exit()
+        atype = False
 
     # histogram type
     htype = str(htype).lower()
@@ -305,8 +310,7 @@ def config(dirIn, dirOut, fname, fdir, new_file, atype, htype, mc, bins, rebin):
     elif htype in mt_keys:
         htype = 3
     else:
-        print("\nInput error:\tWrong histo type!\nOptions:\n\tTH1 k*: \t'k', 'kstar', 1 \n\tTH2 k-mult: \t'mult', 'kmult', 2 \n\tTH2 k-mt: \t'mt', 'kmt', 3\n")
-        exit()
+        htype = False
     mc = bool(mc)
     rebin = bin2list(rebin)
 
