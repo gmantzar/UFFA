@@ -6,6 +6,7 @@ class FileReader:
         self._tree  = [self._ifile]
         self._wdir  = self._ifile
         if directory:
+            directory = self._fix_path(directory)
             self._set_dir(directory)
 
     # fix dir path
