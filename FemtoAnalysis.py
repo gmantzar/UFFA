@@ -3,17 +3,16 @@ import FemtoDreamReader as FDR
 import CorrelationHandler as CH
 from math import ceil
 
-def UFFA_pp(path, fname, fdir, new_file, anal_type, hist_type, mc = False, bins = False, rebin = False):
-    conf = config(path, fname, fdir, new_file, anal_type, hist_type, mc, bins, rebin)
+def UFFA_pp(dirIn, fname, fdir, new_file, atype, htype, mc = False, bins = False, rebin = False, dirOut = None):
+    conf = config(dirIn, dirOut, fname, fdir, new_file, atype, htype, mc, bins, rebin)
     fdr = FDR.FemtoDreamReader(conf[0]+conf[1], conf[2])
 
     # block for the correlation calculation
     ch = cf_handler(fdr, conf)
-    histos = ch.get_histos()
     #######################################
 
     # file saver
-    fds = FemtoDreamSaver(fname, histos, conf)
+    fds = FemtoDreamSaver(ch.get_histos(), conf)
     ############
 
 # class that handles the retrieving of histos and computing of correlation functions
@@ -79,18 +78,18 @@ class cf_handler():
 class FemtoDreamSaver():
     last_edit = None
 
-    def __init__(self, ofile, histos, conf):
-        self._ofile = ofile     # output file name
+    def __init__(self, histos, conf):
         self._histos = histos   # all histos from the cf_handler
-        self._opath = conf[0]   # path to file
+        self._ipath = conf[0]   # path to file
         self._oname = conf[1]   # name of file
-        self._odir  = conf[2]   # TDirectory name
+        self._idir  = conf[2]   # TDirectory name
         self._atype = conf[3]   # analysis type
         self._htype = conf[4]   # histo type
         self._mc    = conf[5]   # bool monte carlo data
         self._bins  = conf[6]   # bin range for differential
         self._rebin = conf[7]   # rebin factors for all se, me, cf plots
-        self._newfile = conf[8] # "new", "recreate" or "update"
+        self._nfile = conf[8]   # "new", "recreate" or "update"
+        self._opath = conf[9]   # output directory
         self._save_histos()
 
     # write all histos from the list 'histos'
@@ -123,18 +122,18 @@ class FemtoDreamSaver():
     # Obacht! very chunky function!
     def _save_histos(self):
         # for "new" file: rename output if the output file already exists
-        if self._newfile == "new":
-            new_name = self._file_exists(self._opath + "UFFA_" + self._ofile)
+        if self._nfile == "new":
+            new_name = self._file_exists(self._opath + "UFFA_" + self._oname)
             print(new_name + " created!")
-            self._ofile = new_name
-            ofile_name = self._opath + self._ofile
-            FemtoDreamSaver.last_edit = self._ofile
+            self._oname = new_name
+            ofile_name = self._opath + self._oname
+            FemtoDreamSaver.last_edit = self._oname
         else:
-            ofile_name = self._opath + "UFFA_" + self._ofile
+            ofile_name = self._opath + "UFFA_" + self._oname
 
         if FemtoDreamSaver.last_edit:
             ofile_name = FemtoDreamSaver.last_edit
-        ofile = ROOT.TFile(ofile_name, self._newfile)
+        ofile = ROOT.TFile(ofile_name, self._nfile)
 
         if self._atype == 1:        # integrated
             hist_std = self._histos[0]      # [[iSE, iME], [se, me, cf], [se rebin1, me rebin1, cf rebin1], ...]
@@ -160,10 +159,10 @@ class FemtoDreamSaver():
             hist_track_mc = self._histos[6]
             hist_pur = getPurity(hist_track[0], hist_track_mc[0])
 
-        if self._odir == "" or self._odir == "femto-dream-pair-task-track-track":
+        if self._idir == "" or self._idir == "femto-dream-pair-task-track-track":
             dir_root = ofile.mkdir("_std")
         else:
-            dir_root = ofile.mkdir(self._odir)
+            dir_root = ofile.mkdir(self._idir)
         dir_root.cd()
 
         if self._atype == 1:            # integrated
@@ -257,16 +256,24 @@ def bin2list(rebin):
 
 # returns list with the configured settings
 # [path, file name, infile dir, analysis type, hist type, mc, bin range, rebin factors]
-def config(path, fname, fdir, new_file, anal_type, hist_type, mc, bins, rebin):
+def config(dirIn, dirOut, fname, fdir, new_file, atype, htype, mc, bins, rebin):
     k_keys = ['k', 'kstar', '1']
     mult_keys = ['mult', 'kmult', '2']
     mt_keys = ['mt', 'kmt', '3']
     int_keys = ['int', 'integrated', '1']
     dif_keys = ['diff', 'differential', '2']
 
-    ipath = path            # path to file
+    ipath = dirIn           # path to file
     iname = fname           # file name
+    if ROOT.gSystem.AccessPathName(ipath + iname):
+        print("file \"" + ipath + iname + "\" not found!")
+        exit()
     idir = fdir             # TDirectory in file
+    if not dirOut:
+        dirOut = dirIn
+    if ROOT.gSystem.AccessPathName(dirOut):
+        print("output directory \"" + dirOut + "\" does not exist!")
+        exit()
 
     if new_file not in [1, 2, 3]:
         print("\nInput error:\tWrong 'new_file' option!\nOptions:\n\t1 -> \"new\"\n\t2 -> \"recreate\"\n\t3 -> \"update\"\n")
@@ -278,34 +285,32 @@ def config(path, fname, fdir, new_file, anal_type, hist_type, mc, bins, rebin):
         new_file = "recreate"
     elif new_file == 3:
         new_file = "update"
-    else:
-        print("Input error: This ain't it chief!")
 
     # analysis type
-    anal_type = str(anal_type).lower()
-    if anal_type in int_keys:
-        anal_type = 1
-    elif anal_type in dif_keys:
-        anal_type = 2
+    atype = str(atype).lower()
+    if atype in int_keys:
+        atype = 1
+    elif atype in dif_keys:
+        atype = 2
     else:
         print("\nInput error:\tWrong analysis type!\nOptions:\n\tintegrated: \t'int', 'integrated', 1 \n\tdifferential: \t'dif', 'differential', 2\n")
         exit()
 
     # histogram type
-    hist_type = str(hist_type).lower()
-    if hist_type in k_keys:
-        hist_type = 1
-    elif hist_type in mult_keys:
-        hist_type = 2
-    elif hist_type in mt_keys:
-        hist_type = 3
+    htype = str(htype).lower()
+    if htype in k_keys:
+        htype = 1
+    elif htype in mult_keys:
+        htype = 2
+    elif htype in mt_keys:
+        htype = 3
     else:
         print("\nInput error:\tWrong histo type!\nOptions:\n\tTH1 k*: \t'k', 'kstar', 1 \n\tTH2 k-mult: \t'mult', 'kmult', 2 \n\tTH2 k-mt: \t'mt', 'kmt', 3\n")
         exit()
     mc = bool(mc)
     rebin = bin2list(rebin)
 
-    return [ipath, iname, idir, anal_type, hist_type, mc, bins, rebin, new_file]
+    return [ipath, iname, idir, atype, htype, mc, bins, rebin, new_file, dirOut]
 
 # splits th2 in section based on provided bins
 def getBinRangeHistos(iSE, iME, bins):
@@ -353,12 +358,12 @@ def getCorrelation(se, me, name, conf):
 
 # returns [[iSE, iME], [se, me, cf]] for a list of mt or mult ranges
 # and a list of rebinned [se, me, cf] appended to the firt list for rebin factors
-def getDifferential(se, me, hist_type, bins, rebin):
+def getDifferential(se, me, htype, bins, rebin):
     histos = []
-    if hist_type == 2:
+    if htype == 2:
         conf = "mult: "
         histos.append([se.Clone("SE kmult"), me.Clone("ME kmult")])
-    elif hist_type == 3:
+    elif htype == 3:
         conf = "mt: "
         histos.append([se.Clone("SE kmT"), me.Clone("ME kmT")])
     else:
@@ -381,18 +386,18 @@ def getDifferential(se, me, hist_type, bins, rebin):
 # returns a list of [[iSE, iME], [se, me, cf]] for rel pair k* input
 # or reweights and returns ([[iSE, iME], [se, me, cf]], [me_unw, cf_unw]) for kmult
 # and [[iSE, iME], [se, me, cf]] for kmT
-def getIntegrated(se, me, hist_type, rebin):
+def getIntegrated(se, me, htype, rebin):
     histos = []
     histos_unw = []
-    if hist_type == 1:      # k* input
+    if htype == 1:      # k* input
         histos.append([se.Clone("SE kstar"), me.Clone("ME kstar")])
-    elif hist_type == 2:    # kmult input
+    elif htype == 2:    # kmult input
         histos.append([se.Clone("SE kmult"), me.Clone("ME kmult")])
         hReweight = reweight(se, me)
         se = hReweight[0]
         me = hReweight[1]
         me_unw = hReweight[2]
-    elif hist_type == 3:    # kmT input
+    elif htype == 3:    # kmT input
         histos.append([se.Clone("SE kmT"), me.Clone("ME kmT")])
         hReweight = reweight(se, me)
         se = hReweight[0]
@@ -407,7 +412,7 @@ def getIntegrated(se, me, hist_type, rebin):
             rebin_conf = " rebin: " + str(factor)
             histos_rebin.append(getCorrelation(se_rebin, me_rebin, "rebin: " + str(factor), rebin_conf))
         histos.append(histos_rebin)
-    if hist_type == 2:      # 2nd list with unweighted histos
+    if htype == 2:      # 2nd list with unweighted histos
         se, me, cf = getCorrelation(se, me_unw, "cf_unw", "unweighted")
         histos_unw.append([me.Clone("ME unw"), cf.Clone("CF unw")])
         if rebin:           # append rebinned histos to list of histos
