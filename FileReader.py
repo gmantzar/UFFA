@@ -9,11 +9,13 @@ class FileReader:
             directory = self._fix_path(directory)
             self._set_dir(directory)
 
-    # fix dir path
+    # fix dir path, i.e. remove preceding and trailing /
     def _fix_path(self, dir_name):
         if dir_name:
             if dir_name[-1] == '/':
                 dir_name = dir_name[:-1]
+            if dir_name[0] == '/':
+                dir_name = dir_name[1:]
         else:
             dir_name = ""
         return dir_name
@@ -21,11 +23,11 @@ class FileReader:
     # find object recursively
     def _find_obj(self, obj_name, dir_obj):
         obj = None
-        try:
+        try:                # try to find in TDirectory
             obj = dir_obj.Get(obj_name)
         except:
             pass
-        if not obj:
+        if not obj:         # try to find in TList
             try:
                 obj = dir_obj.FindObject(obj_name)
             except:
@@ -34,13 +36,19 @@ class FileReader:
 
     # set directory
     def _set_dir(self, dir_name):
+        dir_name = self._fix_path(dir_name)
         name_list = dir_name.rsplit('/')
         for name in name_list:
-            dir_new = self._find_obj(name, self._wdir)
+            dir_new = self._find_obj(name, self._wdir)              # find in current directory
+            if not dir_new:
+                dir_new = self._find_obj(name, self._ifile)         # find in root directory
+                if dir_new:
+                    self._tree = [self._ifile]                      # if found in root dir, reset working directory path
             if not dir_new:
                 print("Directory \"" + name + "\" not found!")
+                self.ls()
                 return
-            self._tree.append(dir_new)
+            self._tree.append(dir_new)                              # append dir to dir path
             self._wdir = dir_new
             if dir_new.Class() == ROOT.TList.Class():
                 continue
@@ -48,6 +56,7 @@ class FileReader:
 
     # find and return object
     def _get_obj(self, obj_name):
+        obj_name = self._fix_path(obj_name)
         name_list = obj_name.rsplit('/')
         obj = None
         obj = self._find_obj(name_list[0], self._wdir)
@@ -67,29 +76,31 @@ class FileReader:
     # or if given, from the full path or a subdirectory
     def get_histo(self, histo_name, dir_name = None):
         dir_name = self._fix_path(dir_name)
-        return self._get_obj(dir_name + '/' +histo_name)
+        if not dir_name or dir_name == "":
+            return self._get_obj(histo_name)
+        return self._get_obj(dir_name + '/' + histo_name)
 
     # function to retrieve all histograms in a directory as a list
     def get_histos(self, dir_name = None):
         if dir_name:
-            dir_name = self._fix_path(dir_name)
-            directory = self._get_obj(dir_name)
+            dir_name = self._fix_path(dir_name)             # fix the path
+            directory = self._get_obj(dir_name)             # set directory
         else:
-            directory = self._wdir
+            directory = self._wdir                          # find in current directory
         histos = []
-        if directory.Class() == ROOT.TList.Class():
+        if directory.Class() == ROOT.TList.Class():         # for TList
             lnk = directory.FirstLink()
             lobj_ent = directory.GetEntries()
-        else:
+        else:                                               # for TDirectory
             lobj = directory.GetListOfKeys()
             lobj_ent = lobj.GetEntries()
             lnk = lobj.FirstLink()
-        for n in range(lobj_ent):
+        for n in range(lobj_ent):                           # iterate over entries
             if directory.Class() == ROOT.TList.Class():
                 obj = lnk.GetObject()
             else:
                 obj = lnk.GetObject().ReadObj()
-            if obj.InheritsFrom(ROOT.TH1.Class()):
+            if obj.InheritsFrom(ROOT.TH1.Class()):          # check if its a derivative of TH1
                 histos.append(obj)
             lnk = lnk.Next()
         for hist in histos:
@@ -129,13 +140,13 @@ class FileReader:
                 print("Already in root directory!")
                 self._wdir.ls()
             else:
-                self._tree.pop()
+                self._tree.pop()                        # remove entry for working directory list
                 self._wdir = self._tree[-1]
         else:
             # 0 is the root directory of the file
             if dir_name == 0:
                 self._wdir = self._ifile
-                self._tree = [self._ifile]
+                self._tree = [self._ifile]              # reset working directory list
             else:
                 dir_name = self._fix_path(dir_name)
                 self._set_dir(dir_name)
@@ -155,12 +166,15 @@ class FileReader:
             return self._ifile.GetName()
         for obj in self._tree[1:]:
             pwd += obj.GetName() + "/"
+        print("pwd: \"" + pwd + "\"")
         return pwd
 
     # return current directory
     def get_dir(self):
+        print("dir: \"" + self._wdir.GetName() + "\"")
         return self._wdir.GetName()
 
     # return file
     def get_file(self):
+        print("file: \"" + self._ifile.GetName() + "\"")
         return self._ifile.GetName()
