@@ -1,11 +1,11 @@
 import ROOT
-import FemtoDreamReader as FDR
+import v2FemtoDreamReader as FDR
 import CorrelationHandler as CH
 from math import ceil
 
 def UFFA_pp(dirIn, fname, fdir, new_file, atype, htype, mc = False, bins = False, rebin = False, dirOut = None):
     conf = config(dirIn, dirOut, fname, fdir, new_file, atype, htype, mc, bins, rebin)
-    fdr = FDR.FemtoDreamReader(conf[0]+conf[1], conf[2])
+    fdr = FDR.FemtoDreamReader(conf[0] + conf[1], conf[2])
 
     # block for the correlation calculation
     ch = cf_handler(fdr, conf)
@@ -17,6 +17,7 @@ def UFFA_pp(dirIn, fname, fdir, new_file, atype, htype, mc = False, bins = False
 
 def TemplateFit(dirIn, fname, nfile, htype, bins, dirOut = None):
     conf = config(dirIn, dirOut, fname, False, nfile, False, htype, False, bins, False)
+    fdr = FDR.FemtoDreamReader(conf[0] + conf[1], conf[2])
 
 
 # class that handles the retrieving of histos and computing of correlation functions
@@ -163,8 +164,11 @@ class FemtoDreamSaver():
             hist_track_mc = self._histos[6]
             hist_pur = getPurity(hist_track[0], hist_track_mc[0])
 
-        if self._idir == "" or self._idir == "femto-dream-pair-task-track-track":
-            dir_root = ofile.mkdir("_std")
+        default = "femto-dream-pair-task-track-track"
+        if self._idir == "" or self._idir == default:
+            dir_root = ofile.mkdir(default + "_std")
+        elif self._idir[0] == '_':
+            dir_root = ofile.mkdir(default + self._idir)
         else:
             dir_root = ofile.mkdir(self._idir)
         dir_root.cd()
