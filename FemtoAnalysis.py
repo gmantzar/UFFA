@@ -1,5 +1,5 @@
 import ROOT
-import v2FemtoDreamReader as FDR
+import FemtoDreamReader as FDR
 import CorrelationHandler as CH
 from math import ceil
 
