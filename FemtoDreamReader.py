@@ -11,16 +11,16 @@ class FemtoDreamReader(FR.FileReader):
 
     ### Getter Functions ###
     def get_pt(self):
-        return self.get_histo("hPt", "Tracks_one")
+        return self.get_histo("Tracks_one/hPt")
 
     def get_pt_mc(self):
-        return self.get_histo("hPt", "Tracks_one_MC")
+        return self.get_histo("Tracks_one_MC/hPt")
 
     def get_dca(self):
-        return self.get_histo("hDCAxy", "Tracks_one")
+        return self.get_histo("Tracks_one/hDCAxy")
 
     def get_zvxt(self):
-        return self.get_histo("zvtxhist", "Event")
+        return self.get_histo("Event/zvtxhist")
 
     def get_event(self):
         return self.get_histos("Event")
@@ -32,25 +32,25 @@ class FemtoDreamReader(FR.FileReader):
         return self.get_histos("Tracks_one_MC")
 
     def get_se(self):
-        return self.get_histo("relPairDist", "SameEvent")
+        return self.get_histo("SameEvent/relPairDist")
 
     def get_me(self):
-        return self.get_histo("relPairDist", "MixedEvent")
+        return self.get_histo("MixedEvent/relPairDist")
 
     def get_kstar(self):
-        return self.get_histo("relPairDist", "SameEvent"), self.get_histo("relPairDist", "MixedEvent")
+        return self.get_histo("SameEvent/relPairDist"), self.get_histo("MixedEvent/relPairDist")
 
     def get_kstar_mc(self):
-        return self.get_histo("relPairDist", "SameEvent_MC"), self.get_histo("relPairDist", "MixedEvent_MC")
+        return self.get_histo("SameEvent_MC/relPairDist"), self.get_histo("MixedEvent_MC/relPairDist")
 
     def get_kmt(self):
-        return self.get_histo("relPairkstarmT", "SameEvent"), self.get_histo("relPairkstarmT", "MixedEvent")
+        return self.get_histo("SameEvent/relPairkstarmT"), self.get_histo("MixedEvent/relPairkstarmT")
 
     def get_kmt_mc(self):
-        return self.get_histo("relPairkstarmT", "SameEvent_MC"), self.get_histo("relPairkstarmT", "MixedEvent_MC")
+        return self.get_histo("SameEvent_MC/relPairkstarmT"), self.get_histo("MixedEvent_MC/relPairkstarmT")
 
     def get_kmult(self):
-        return self.get_histo("relPairkstarMult", "SameEvent"), self.get_histo("relPairkstarMult", "MixedEvent")
+        return self.get_histo("SameEvent/relPairkstarMult"), self.get_histo("MixedEvent/relPairkstarMult")
 
     def get_kmult_mc(self):
-        return self.get_histo("relPairkstarMult", "SameEvent_MC"), self.get_histo("relPairkstarMult", "MixedEvent_MC")
+        return self.get_histo("SameEvent_MC/relPairkstarMult"), self.get_histo("MixedEvent_MC/relPairkstarMult")
