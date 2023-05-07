@@ -164,7 +164,7 @@ class FemtoDreamSaver():
             hist_pur = getPurity(hist_track[0], hist_track_mc[0])
 
         if self._idir == "" or self._idir == "femto-dream-pair-task-track-track":
-            dir_root = ofile.mkdir("_std")
+            dir_root = ofile.mkdir("femto-dream-pair-task-track-track_std")
         else:
             dir_root = ofile.mkdir(self._idir)
         dir_root.cd()
