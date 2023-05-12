@@ -23,7 +23,7 @@ def TemplateFit(dirIn, fname, fdir, nfile, htype, bins, dirOut = None):
     dcacpa = 'dca'
     dca_mcplots_names = ['prim', 'lam', 'sig', 'mat', 'fake']
     pt_bins = 8
-    TF.TemplateFit(fname, dca_data, dca_mcplots, dcacpa, dca_mcplots_names, pt_bins, dirOut):
+    TF.TemplateFit(fname, dca_data, dca_mcplots, dcacpa, dca_mcplots_names, pt_bins, dirOut)
 
 # class that handles the retrieving of histos and computing of correlation functions
 class cf_handler():

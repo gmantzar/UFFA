@@ -18,6 +18,8 @@ def TemplateFit(fname, dca_data, dca_mcplots, dcacpa, dca_mcplots_names, pt_bins
     # Output file
     if dirOut and dirOut != "" and dirOut[-1] != '/':
         dirOut += '/'
+    else:
+        dirOut = ""
     ofile = ROOT.TFile(dirOut + "TemplateFit_" + fname, "recreate")
 
     dca_ent = len(dca_mcplots)
