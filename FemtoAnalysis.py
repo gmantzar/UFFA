@@ -1,6 +1,7 @@
 import ROOT
 import FemtoDreamReader as FDR
 import CorrelationHandler as CH
+import TemplateFit as TF
 from math import ceil
 
 def UFFA_pp(dirIn, fname, fdir, new_file, atype, htype, mc = False, bins = False, rebin = False, dirOut = None):
@@ -15,10 +16,14 @@ def UFFA_pp(dirIn, fname, fdir, new_file, atype, htype, mc = False, bins = False
     fds = FemtoDreamSaver(ch.get_histos(), conf)
     ############
 
-def TemplateFit(dirIn, fname, nfile, htype, bins, dirOut = None):
-    conf = config(dirIn, dirOut, fname, False, nfile, False, htype, False, bins, False)
-    fdr = FDR.FemtoDreamReader(conf[0] + conf[1], conf[2])
-
+def TemplateFit(dirIn, fname, fdir, nfile, htype, bins, dirOut = None):
+    fdr = FDR.FemtoDreamReader(dirIn + fname, fdir)
+    dca_data = fdr.get_dca()
+    dca_mcplots = fdr.get_dca_mc()
+    dcacpa = 'dca'
+    dca_mcplots_names = ['prim', 'lam', 'sig', 'mat', 'fake']
+    pt_bins = 8
+    TF.TemplateFit(fname, dca_data, dca_mcplots, dcacpa, dca_mcplots_names, pt_bins, dirOut):
 
 # class that handles the retrieving of histos and computing of correlation functions
 class cf_handler():

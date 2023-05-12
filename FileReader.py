@@ -6,11 +6,11 @@ class FileReader:
         self._tree  = [self._ifile]
         self._wdir  = self._ifile
         if directory:
-            directory = self._fix_path(directory)
+            directory = self.fix_path(directory)
             self._set_dir(directory)
 
     # fix dir path, i.e. remove preceding and trailing /
-    def _fix_path(self, dir_name):
+    def fix_path(self, dir_name):
         if dir_name:
             if dir_name[-1] == '/':
                 dir_name = dir_name[:-1]
@@ -36,7 +36,7 @@ class FileReader:
 
     # set directory
     def _set_dir(self, dir_name):
-        dir_name = self._fix_path(dir_name)
+        dir_name = self.fix_path(dir_name)
         name_list = dir_name.rsplit('/')
         for name in name_list:
             dir_new = self._find_obj(name, self._wdir)              # find in current directory
@@ -56,7 +56,7 @@ class FileReader:
 
     # find and return object
     def _get_obj(self, obj_name):
-        obj_name = self._fix_path(obj_name)
+        obj_name = self.fix_path(obj_name)
         name_list = obj_name.rsplit('/')
         obj = None
         obj = self._find_obj(name_list[0], self._wdir)
@@ -75,7 +75,7 @@ class FileReader:
     # retrieves a histogram by name in the current directory
     # or if given, from the full path or a subdirectory
     def get_histo(self, histo_name, dir_name = None):
-        dir_name = self._fix_path(dir_name)
+        dir_name = self.fix_path(dir_name)
         if not dir_name or dir_name == "":
             return self._get_obj(histo_name)
         return self._get_obj(dir_name + '/' + histo_name)
@@ -83,7 +83,7 @@ class FileReader:
     # function to retrieve all histograms in a directory as a list
     def get_histos(self, dir_name = None):
         if dir_name:
-            dir_name = self._fix_path(dir_name)             # fix the path
+            dir_name = self.fix_path(dir_name)             # fix the path
             directory = self._get_obj(dir_name)             # set directory
         else:
             directory = self._wdir                          # find in current directory
@@ -110,7 +110,7 @@ class FileReader:
     # function to retrieve a full directory as a list
     def get_dir(self, dir_name = None):
         if dir_name:
-            dir_name = self._fix_path(dir_name)
+            dir_name = self.fix_path(dir_name)
             directory = self._get_obj(dir_name)
         else:
             directory = self._wdir
@@ -148,7 +148,7 @@ class FileReader:
                 self._wdir = self._ifile
                 self._tree = [self._ifile]              # reset working directory list
             else:
-                dir_name = self._fix_path(dir_name)
+                dir_name = self.fix_path(dir_name)
                 self._set_dir(dir_name)
 
     # list directory content

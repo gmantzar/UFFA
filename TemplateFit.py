@@ -14,9 +14,11 @@ class ftotal:
             total += par[n]*self.histos[n].GetBinContent(nbin)
         return total
 
-def TemplateFit(filename, dca_data, dca_mcplots, dca_mcplots_names, pt_bins, dcacpa):
+def TemplateFit(fname, dca_data, dca_mcplots, dcacpa, dca_mcplots_names, pt_bins, dirOut = None):
     # Output file
-    ofile = ROOT.TFile("TemplateFit_"+filename, "recreate")
+    if dirOut and dirOut != "" and dirOut[-1] != '/':
+        dirOut += '/'
+    ofile = ROOT.TFile(dirOut + "TemplateFit_" + fname, "recreate")
 
     dca_ent = len(dca_mcplots)
     if type(dcacpa) == str:
