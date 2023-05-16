@@ -16,7 +16,7 @@ def UFFA_pp(dirIn, fname, fdir, new_file, atype, htype, mc = False, bins = False
     fds = FemtoDreamSaver(ch.get_histos(), conf)
     ############
 
-def TemplateFit(dirIn, fname, fdir, nfile, htype, bins, dirOut = None):
+def TemplateFit(dirIn, fname, fdir, dirOut = None):
     fdr = FDR.FemtoDreamReader(dirIn + fname, fdir)
     dca_data = fdr.get_dca()
     dca_mcplots = fdr.get_dca_mc()
