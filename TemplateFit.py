@@ -58,7 +58,7 @@ def TemplateFit(fname, dca_data, dca_mcplots, dcacpa, dca_mcplots_names, pt_bins
         gDCA_mc[i].GetXaxis().SetTitle("p (GeV)")
         gDCA_mc[i].SetLineColor(i + 3)
 
-    for n in range(1, pt_bins):
+    for n in range(1, pt_bins + 1):
         # canvas for fitting
         canvas = ROOT.TCanvas("canvas_" + str(n), "canvas_" + str(n), 0, 0, 650, 550)
         canvas.cd()
@@ -174,11 +174,15 @@ def TemplateFit(fname, dca_data, dca_mcplots, dcacpa, dca_mcplots_names, pt_bins
     primAvg.SetLineStyle(2)
     primAvg.Draw("same")
 
+    for n in range(dca_ent):
+        print("%-12s %.6f" % (dca_mcplots_names[n], m2ent[n]/m2tot))
+
     ofile.cd()
     for i in range(dca_ent):
         gDCA_mc[i].Write()
     gChi.Write("chi2/ndf")
     d12.Write("all")
+    primAvg.Write()
     pT_Weights.Write()
 
 

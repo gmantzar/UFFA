@@ -45,7 +45,7 @@ class FileReader:
                 if dir_new:
                     self._tree = [self._ifile]                      # if found in root dir, reset working directory path
             if not dir_new:
-                print("Directory \"" + name + "\" not found!")
+                print("\n\tDirectory \"" + name + "\" not found!\n")
                 self.ls()
                 return
             self._tree.append(dir_new)                              # append dir to dir path

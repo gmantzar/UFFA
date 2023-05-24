@@ -4,26 +4,37 @@ import CorrelationHandler as CH
 import TemplateFit as TF
 from math import ceil
 
-def UFFA_pp(dirIn, fname, fdir, new_file, atype, htype, mc = False, bins = False, rebin = False, dirOut = None):
+def UFFA_pp(dirIn, fname, fdir, new_file, atype, htype, mc = None, bins = None, rebin = None, dirOut = None):
     conf = config(dirIn, dirOut, fname, fdir, new_file, atype, htype, mc, bins, rebin)
+    # file reader
     fdr = FDR.FemtoDreamReader(conf[0] + conf[1], conf[2])
-
-    # block for the correlation calculation
+    # correlation calculation
     ch = cf_handler(fdr, conf)
-    #######################################
-
     # file saver
     fds = FemtoDreamSaver(ch.get_histos(), conf)
-    ############
 
-def TemplateFit(dirIn, fname, fdir, dirOut = None):
-    fdr = FDR.FemtoDreamReader(dirIn + fname, fdir)
-    dca_data = fdr.get_dca()
-    dca_mcplots = fdr.get_dca_mc()
-    dcacpa = 'dca'
-    dca_mcplots_names = ['prim', 'lam', 'sig', 'mat', 'fake']
+def TemplateFit(dcacpa, dca_mcplots_names, data_file, data_dir, mc_file = None, mc_dir = None, fname = None, dirOut = None):
+    if type(data_file) == str:
+        fdr1 = FDR.FemtoDreamReader(data_file, data_dir)
+        dca_data = fdr1.get_dca()
+        if not dca_data:
+            dca_data = fdr1.get_histo("Tracks_one/DCAxy")
+    else:
+        dca_data = data_file
+    if mc_file:
+        if type(mc_file) == str:
+            fdr2 = FDR.FemtoDreamReader(mc_file, mc_dir)
+            dca_mcplots = fdr2.get_dca_mc()
+        else:
+            dca_mcplots = mc_file
+    else:
+        dca_mcplots = fdr1.get_dca_mc()
+
     pt_bins = 8
+    if not fname:
+        fname = data_file
     TF.TemplateFit(fname, dca_data, dca_mcplots, dcacpa, dca_mcplots_names, pt_bins, dirOut)
+
 
 # class that handles the retrieving of histos and computing of correlation functions
 class cf_handler():
@@ -258,11 +269,10 @@ def bin2list(rebin):
     rebin_list = []
     if type(rebin) == int:
         rebin = [rebin]
-    elif type(rebin) != list and type(rebin) != bool:
+    elif type(rebin) != list:
         print("rebin factor is not an int or a list!")
         exit()
-    if rebin:
-        rebin_list.extend(rebin)
+    rebin_list.extend(rebin)
     return rebin_list
 
 # returns list with the configured settings
@@ -308,7 +318,7 @@ def config(dirIn, dirOut, fname, fdir, new_file, atype, htype, mc, bins, rebin):
     elif atype in dif_keys:
         atype = 2
     else:
-        atype = False
+        atype = None
 
     # histogram type
     htype = str(htype).lower()
@@ -319,9 +329,11 @@ def config(dirIn, dirOut, fname, fdir, new_file, atype, htype, mc, bins, rebin):
     elif htype in mt_keys:
         htype = 3
     else:
-        htype = False
-    mc = bool(mc)
-    rebin = bin2list(rebin)
+        htype = None
+
+    mc = True if mc else None
+
+    rebin = bin2list(rebin) if rebin else None
 
     return [ipath, iname, idir, atype, htype, mc, bins, rebin, new_file, dirOut]
 
