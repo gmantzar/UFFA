@@ -20,11 +20,10 @@ class FemtoDreamReader(FR.FileReader):
         return self.get_histo("Tracks_one/hDCAxy")
 
     def get_dca_mc(self):
-        return self.get_histo("Tracks_one_MC/hDCAxy_Primary"), \
-                self.get_histo("Tracks_one_MC/hDCAxy_Daughter"), \
+        return [self.get_histo("Tracks_one_MC/hDCAxy_Primary"), \
                 self.get_histo("Tracks_one_MC/hDCAxy_DaughterLambda"), \
                 self.get_histo("Tracks_one_MC/hDCAxy_DaughterSigmaplus"), \
-                self.get_histo("Tracks_one_MC/hDCAxy_Material")
+                self.get_histo("Tracks_one_MC/hDCAxy_Material")]
 
     def get_zvxt(self):
         return self.get_histo("Event/zvtxhist")

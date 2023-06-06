@@ -3,7 +3,7 @@ import FemtoDreamReader as FDR
 import FemtoAnalysis as FA
 import array as arr
 
-class ftotal:
+class ftotal():
     def __init__(self, data, mcdata):
         self.data = data
         self.histos = mcdata
@@ -14,13 +14,59 @@ class ftotal:
             total += par[n]*self.histos[n].GetBinContent(nbin)
         return total
 
-def TemplateFit(fname, dca_data, dca_mcplots, dcacpa, dca_mcplots_names, pt_bins, dirOut = None):
+def TemplateFit(fname, dca_data, dca_mcplots, dcacpa, dca_mcplots_names, fit_range, pt_bins, dirOut):
     # Output file
     if dirOut and dirOut != "" and dirOut[-1] != '/':
         dirOut += '/'
     else:
         dirOut = ""
     ofile = ROOT.TFile(dirOut + "TemplateFit_" + fname, "recreate")
+
+    xAxis = dca_data.GetXaxis()
+    yAxis = dca_data.GetYaxis()
+    # setup for the bin ranges for the projections
+    # output: [(bin1, bin2), (bin2, bin3), ...]
+    if type(pt_bins) == int:                                            # input: bins
+        pt_ent = pt_bins
+        pt_range = []
+        for n in range(pt_ent):
+            pt_range.append((n + 1, n + 2))
+        pt_rebin = None
+    elif type(pt_bins) == list:
+        if type(pt_bins[0]) == list and type(pt_bins[1]) == list:       # input: [[bin range], [rebin factors]]
+            pt_ent = len(pt_bins[0]) - 1
+            pt_range = []
+            for i in range(pt_ent):
+                bin_value1 = xAxis.FindBin(pt_bins[0][i])
+                bin_value2 = xAxis.FindBin(pt_bins[0][i + 1])
+                pt_range.append((bin_value1, bin_value2))
+            pt_rebin = pt_bins[1]
+        elif type(pt_bins[0]) == list and type(pt_bins[1]) == int:      # input: [[bin range], rebin factor]
+            pt_ent = len(pt_bins[0]) - 1
+            pt_range = []
+            for i in range(pt_ent):
+                bin_value1 = xAxis.FindBin(pt_bins[0][i])
+                bin_value2 = xAxis.FindBin(pt_bins[0][i + 1])
+                pt_range.append((bin_value1, bin_value2))
+            pt_rebin = [pt_bins[1]]*pt_ent
+        else:                                                           # input: [bin range]
+            pt_ent = len(pt_bins) - 1
+            pt_range = []
+            for i in range(pt_ent):
+                bin_value1 = xAxis.FindBin(pt_bins[i])
+                bin_value2 = xAxis.FindBin(pt_bins[i + 1])
+                pt_range.append((bin_value1, bin_value2))
+            pt_rebin = None
+    else:
+        print("TemplateFit.py: pt_bins not an int or list of ranges: " + pt_bins)
+        exit()
+
+    pt_names = []
+    for n in range(pt_ent):
+        name = "p_{T} range: [%.3f-%.3f) GeV" % (xAxis.GetBinLowEdge(pt_range[n][0]), xAxis.GetBinLowEdge(pt_range[n][1]))
+        if pt_rebin:
+            name += " rebin: " + str(pt_rebin[n])
+        pt_names.append(name)
 
     dca_ent = len(dca_mcplots)
     if type(dcacpa) == str:
@@ -32,16 +78,15 @@ def TemplateFit(fname, dca_data, dca_mcplots, dcacpa, dca_mcplots_names, pt_bins
             print("Error in plot type: \"dca\" or \"cpa\"")
 
     # dca cut
+    CPAcut = 0.99
     if dcacpa == 1:
-        DCAcut = 0.1
-        fitmin = -0.3
-        fitmax = 0.3
+        fitmax = fit_range
+        fitmin = -fitmax
     else:
-        DCAcut = 0.99
         fitmin = 0.9
         fitmax = 1.0
 
-    gChi = ROOT.TGraph(pt_bins - 1)
+    gChi = ROOT.TGraph(pt_ent - 1)
     m2ent = [0]*dca_ent
     dataEntries = []
     mcEntries = []
@@ -49,38 +94,51 @@ def TemplateFit(fname, dca_data, dca_mcplots, dcacpa, dca_mcplots_names, pt_bins
     gDCA_mc = []
     for i in range(dca_ent):
         parDCA_mc.append([])
-        gDCA_mc.append(ROOT.TGraph(pt_bins - 1))
+        gDCA_mc.append(ROOT.TGraph(pt_ent - 1))
         gDCA_mc[i].SetName(dca_mcplots_names[i])
+        gDCA_mc[i].SetTitle(dca_mcplots_names[i])
         gDCA_mc[i].SetLineWidth(2)
+        gDCA_mc[i].SetLineColor(i + 3)
+        gDCA_mc[i].SetMarkerStyle(21)
+        gDCA_mc[i].SetMarkerSize(1)
+        gDCA_mc[i].SetMarkerColor(i + 3)
         gDCA_mc[i].GetXaxis().SetLabelSize(0.05)
         gDCA_mc[i].GetYaxis().SetLabelSize(0.05)
         gDCA_mc[i].GetXaxis().SetTitleSize(0.05)
-        gDCA_mc[i].GetXaxis().SetTitle("p (GeV)")
-        gDCA_mc[i].SetLineColor(i + 3)
+        gDCA_mc[i].GetXaxis().SetTitle("<p_{T}> (GeV)")
 
-    for n in range(1, pt_bins + 1):
+    for n in range(pt_ent):
         # canvas for fitting
-        canvas = ROOT.TCanvas("canvas_" + str(n), "canvas_" + str(n), 0, 0, 650, 550)
+        canvas = ROOT.TCanvas("canvas_" + str(n + 1), "canvas_" + str(n + 1))
+        canvas.SetCanvasSize(1024, 768)
         canvas.cd()
+        ROOT.gStyle.SetOptStat(0)
         ROOT.gPad.SetLogy()
 
         # data
-        data = dca_data.ProjectionY("DCAxy_" + str(n), n, n)
-        data.Scale(1./data.Integral())
-        dataEntries.append(data.Integral(data.FindBin(DCAcut), data.FindBin(1)))
+        data = dca_data.ProjectionY("DCAxy_" + str(n + 1), pt_range[n][0], pt_range[n][1] - 1)
+        data.Rebin(pt_rebin[n])
+        if dcacpa == "cpa":
+            data_int = data.Integral(data.FindBin(CPAcut), data.FindBin(1))
+        else:
+            data_int = data.Integral(data.FindBin(fitmin), data.FindBin(fitmax))
+        dataEntries.append(data_int)
+        data.Scale(1. / data.Integral())
 
         # MC templates
         hDCA_mc = []
         for i in range(dca_ent):
-            hDCA_mc.append(dca_mcplots[i].ProjectionY(dca_mcplots_names[i] + '_' + str(n), n, n))
-            hDCA_mc[i].Scale(1./hDCA_mc[i].Integral())
+            hDCA_mc.append(dca_mcplots[i].ProjectionY(dca_mcplots_names[i] + '_' + str(n + 1), pt_range[n][0], pt_range[n][1] - 1))
+            hDCA_mc[i].Rebin(pt_rebin[n])
+            hDCA_mc[i].SetTitle(pt_names[n])
+            hDCA_mc[i].Scale(1. / hDCA_mc[i].Integral())
 
         # fitting
         adj = ftotal(data, hDCA_mc)
         ftot = ROOT.TF1("ftot", adj, fitmin, fitmax, dca_ent)
 
         for i in range(dca_ent):
-            ftot.SetParameter(i, 0.5)
+            ftot.SetParameter(i, 1. / dca_ent)
             ftot.SetParLimits(i, 0., 1.)
 
         # draw histograms
@@ -95,7 +153,7 @@ def TemplateFit(fname, dca_data, dca_mcplots, dcacpa, dca_mcplots_names, pt_bins
             hDCA_mc[i].SetLineWidth(2)
             hDCA_mc[i].Draw("same")
 
-        htot = hDCA_mc[0].Clone("htot_" + str(n))
+        htot = hDCA_mc[0].Clone("htot_" + str(n + 1))
         for i in range(1, dca_ent):
             htot.Add(hDCA_mc[i])
         htot.SetLineColor(2)
@@ -122,51 +180,93 @@ def TemplateFit(fname, dca_data, dca_mcplots, dcacpa, dca_mcplots_names, pt_bins
             hDCA_mc[i].Write()
         canvas.Write()
 
-        # ???
-        mcEntries.append(htot.Integral(htot.FindBin(DCAcut), htot.FindBin(1)))
-        for i in range(dca_ent):
-            parDCA_mc[i].append(hDCA_mc[i].Integral(hDCA_mc[i].FindBin(DCAcut), hDCA_mc[i].FindBin(1)) / mcEntries[n - 1])
+        # fractions
+        if dcacpa == "cpa":
+            htot_int = htot.Integral(htot.FindBin(CPAcut), htot.FindBin(1))
+        else:
+            htot_int = htot.Integral(htot.FindBin(fitmin), htot.FindBin(fitmax))
+        mcEntries.append(htot_int)
+        if dcacpa == "cpa":
+            for i in range(dca_ent):
+                parDCA_mc[i].append(hDCA_mc[i].Integral(hDCA_mc[i].FindBin(fitmin), hDCA_mc[i].FindBin(fitmax)) / mcEntries[n])
+        else:
+            for i in range(dca_ent):
+                parDCA_mc[i].append(hDCA_mc[i].Integral(hDCA_mc[i].FindBin(fitmin), hDCA_mc[i].FindBin(fitmax)) / mcEntries[n])
 
         # fill x and y lists for graphs
+        pt_avg = (xAxis.GetBinLowEdge(pt_range[n][0]) + xAxis.GetBinLowEdge(pt_range[n][1])) / 2
         for i in range(dca_ent):
-            gDCA_mc[i].SetPoint(n - 1, dca_data.GetXaxis().GetBinCenter(n), parDCA_mc[i][n - 1])
-        gChi.SetPoint(n - 1, dca_data.GetXaxis().GetBinCenter(n), ftot.GetChisquare() / (ftot.GetNDF() + 1))
+            gDCA_mc[i].SetPoint(n, pt_avg, parDCA_mc[i][n])
+        gChi.SetPoint(n, pt_avg, ftot.GetChisquare() / (ftot.GetNDF() + 1))
+
+        canvas.Close()
+        del canvas
 
     # canvas for chi^2
-    c2 = ROOT.TCanvas("c2", "c2", 0, 0, 650, 550)
+    c2 = ROOT.TCanvas("c2", "c2", 0, 0, 1024, 768)
     c2.cd()
     gChi.SetLineColor(1)
     gChi.Draw()
 
     # calculate final pT weighted result
     m2tot = 0
-    for n in range(pt_bins - 1):
-        m2tot += dataEntries[n]
-        for i in range(dca_ent):
-            m2ent[i] += dataEntries[n]*parDCA_mc[i][n]
+    for i in range(pt_ent):
+        m2tot += dataEntries[i]
+        for j in range(dca_ent):
+            m2ent[j] += dataEntries[i]*parDCA_mc[j][i]
+    #if m2tot == 0:
+        #m2tot = 1
 
     data_bins = dca_data.GetXaxis().GetNbins()
     BinRanges_pT = arr.array('d', [0]*(data_bins + 1))
     BinRanges_pT[data_bins] = dca_data.GetXaxis().GetBinUpEdge(data_bins)
-    pT_Weights = ROOT.TH1F("pT_Weights", "pT_Weights", pt_bins, BinRanges_pT)
-    for n in range(pt_bins - 1):
-        pT_Weights.SetBinContent(n + 1, dataEntries[n] / m2tot)
+    pT_Weights = ROOT.TH1F("pT_Weights", "pT_Weights", pt_ent, BinRanges_pT)
+    for i in range(pt_ent - 1):
+        pT_Weights.SetBinContent(i, dataEntries[i] / m2tot)
 
     # what even is this
-    d12 = ROOT.TCanvas("d12", "d12", 0, 0, 650, 550)
-    d12.cd()
     gChi.SetLineWidth(2)
     gChi.GetXaxis().SetLabelSize(0.05)
     gChi.GetYaxis().SetLabelSize(0.05)
     gChi.GetYaxis().SetTitle("chi2/ndf")
-    gChi.GetXaxis().SetTitle("p (GeV)")
+    gChi.GetXaxis().SetTitle("<p_{T}> (GeV)")
     gChi.GetXaxis().SetTitleSize(0.05)
     gChi.GetYaxis().SetTitleSize(0.05)
 
-    gDCA_mc[0].GetYaxis().SetRangeUser(0.,1.)
-    gDCA_mc[0].Draw("")
+    fractions = ROOT.TCanvas("fractions", "fractions", 1024, 768)
+    ROOT.gPad.SetGridy()
+    fractions.cd()
+    fractions.SetFillColor(0)
+    fractions.SetBorderMode(0)
+    fractions.SetBorderSize(2)
+    fractions.SetFrameBorderMode(0)
+    fractions.SetMargin(0.15, 0.05, 0.2, 0.05)
+
+    gEmpty = gDCA_mc[0]
+    gEmpty.SetTitle("")
+    gEmpty.SetFillStyle(1000)
+    gEmpty.SetMinimum(0.)
+    gEmpty.SetMaximum(1.0)
+    gx = gEmpty.GetXaxis()
+    gy = gEmpty.GetYaxis()
+    gx.SetLimits(xAxis.GetBinLowEdge(pt_range[0][0] - 1), xAxis.GetBinLowEdge(pt_range[-1][1] + 1))
+    gx.SetTitle("<p_{T}> (GeV)")
+    gx.SetLabelFont(42)
+    gx.SetLabelSize(0.06)
+    gx.SetTitleSize(0.07)
+    gx.SetTitleOffset(1)
+    gx.SetTitleFont(42)
+    gy.SetTitle("fractions")
+    gy.SetLabelFont(42)
+    gy.SetLabelSize(0.06)
+    gy.SetTitleSize(0.07)
+    gy.SetTitleFont(42)
+    gEmpty.Draw("alp")
     for i in range(1, dca_ent):
-        gDCA_mc[i].Draw("same")
+        gDCA_mc[i].Draw("lp same")
+    for i in range(pt_ent):
+        line = ROOT.TLine(xAxis.GetBinLowEdge(pt_range[i][0]), parDCA_mc[0][i], xAxis.GetBinLowEdge(pt_range[i][1]), parDCA_mc[0][i])
+        line.DrawClone("same")
 
     primAvg = ROOT.TF1("primAvg", "[0]", 0, 5)
     primAvg.SetParameter(0, m2ent[0] / m2tot)
@@ -174,15 +274,17 @@ def TemplateFit(fname, dca_data, dca_mcplots, dcacpa, dca_mcplots_names, pt_bins
     primAvg.SetLineStyle(2)
     primAvg.Draw("same")
 
-    for n in range(dca_ent):
-        print("%-12s %.6f" % (dca_mcplots_names[n], m2ent[n]/m2tot))
+    for i in range(dca_ent):
+        print("%-12s %.6f" % (dca_mcplots_names[i], m2ent[i] / m2tot))
 
     ofile.cd()
     for i in range(dca_ent):
         gDCA_mc[i].Write()
     gChi.Write("chi2/ndf")
-    d12.Write("all")
+    fractions.Write("all")
     primAvg.Write()
     pT_Weights.Write()
 
-
+    c2.Close()
+    fractions.Close()
+    del c2, fractions, htot, ftot, adj

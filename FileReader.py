@@ -1,8 +1,12 @@
 import ROOT
 
 class FileReader:
+    DEBUG = False
     def __init__(self, ifile, directory = None):
-        self._ifile = ROOT.TFile(ifile, "read")
+        try:
+            self._ifile = ROOT.TFile(ifile, "read")
+        except:
+            return None
         self._tree  = [self._ifile]
         self._wdir  = self._ifile
         if directory:
@@ -45,9 +49,10 @@ class FileReader:
                 if dir_new:
                     self._tree = [self._ifile]                      # if found in root dir, reset working directory path
             if not dir_new:
-                print("\n\tDirectory \"" + name + "\" not found!\n")
-                self.ls()
-                return
+                if FileReader.DEBUG:
+                    print("\n\tDirectory \"" + name + "\" not found!\n")
+                    self.ls()
+                return None
             self._tree.append(dir_new)                              # append dir to dir path
             self._wdir = dir_new
             if dir_new.Class() == ROOT.TList.Class():
@@ -58,17 +63,18 @@ class FileReader:
     def _get_obj(self, obj_name):
         obj_name = self.fix_path(obj_name)
         name_list = obj_name.rsplit('/')
-        obj = None
         obj = self._find_obj(name_list[0], self._wdir)
         if not obj:
             obj = self._find_obj(name_list[0], self._ifile)
         if not obj:
-            print("Object \"" + name_list[0] + "\" not found!")
+            if FileReader.DEBUG:
+                print("Object \"" + name_list[0] + "\" not found!")
             return None
         for name in name_list[1:]:
             obj = self._find_obj(name, obj)
             if not obj:
-                print("Object \"" + name + "\" not found!")
+                if FileReader.DEBUG:
+                    print("Object \"" + name + "\" not found!")
                 return None
         return obj
 
@@ -137,8 +143,9 @@ class FileReader:
     def cd(self, dir_name = None):
         if not dir_name and dir_name != 0:
             if len(self._tree) == 1:
-                print("Already in root directory!")
-                self._wdir.ls()
+                if FileReader.DEBUG:
+                    print("Already in root directory!")
+                    self._wdir.ls()
             else:
                 self._tree.pop()                        # remove entry for working directory list
                 self._wdir = self._tree[-1]
@@ -166,15 +173,22 @@ class FileReader:
             return self._ifile.GetName()
         for obj in self._tree[1:]:
             pwd += obj.GetName() + "/"
-        print("pwd: \"" + pwd + "\"")
+        if FileReader.DEBUG:
+            print("pwd: \"" + pwd + "\"")
         return pwd
 
     # return current directory
     def get_dir(self):
-        print("dir: \"" + self._wdir.GetName() + "\"")
+        if FileReader.DEBUG:
+            print("dir: \"" + self._wdir.GetName() + "\"")
         return self._wdir.GetName()
 
     # return file
     def get_file(self):
-        print("file: \"" + self._ifile.GetName() + "\"")
+        if FileReader.DEBUG:
+            print("file: \"" + self._ifile.GetName() + "\"")
         return self._ifile.GetName()
+
+    # set DEBUG
+    def debug(self, var = True):
+        FileReader.DEBUG = bool(var)
