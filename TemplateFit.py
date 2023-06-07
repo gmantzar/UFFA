@@ -120,7 +120,8 @@ def TemplateFit(fname, dca_data, dca_mcplots, dcacpa, dca_mcplots_names, fit_ran
 
         # data
         data = dca_data.ProjectionY("DCAxy_" + str(n + 1), pt_range[n][0], pt_range[n][1] - 1)
-        data.Rebin(pt_rebin[n])
+        if pt_rebin:
+            data.Rebin(pt_rebin[n])
         if dcacpa == "cpa":
             data_int = data.Integral(data.FindBin(CPAcut), data.FindBin(1))
         else:
@@ -132,7 +133,8 @@ def TemplateFit(fname, dca_data, dca_mcplots, dcacpa, dca_mcplots_names, fit_ran
         hDCA_mc = []
         for i in range(dca_ent):
             hDCA_mc.append(dca_mcplots[i].ProjectionY(dca_mcplots_names[i] + '_' + str(n + 1), pt_range[n][0], pt_range[n][1] - 1))
-            hDCA_mc[i].Rebin(pt_rebin[n])
+            if pt_rebin:
+                hDCA_mc[i].Rebin(pt_rebin[n])
             hDCA_mc[i].SetTitle(pt_names[n])
             hDCA_mc[i].Scale(1. / hDCA_mc[i].Integral())
 
