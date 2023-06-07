@@ -61,6 +61,7 @@ def TemplateFit(fname, dca_data, dca_mcplots, dcacpa, dca_mcplots_names, fit_ran
         print("TemplateFit.py: pt_bins not an int or list of ranges: " + pt_bins)
         exit()
 
+    # titles of the graphs
     pt_names = []
     for n in range(pt_ent):
         name = "p_{T} range: [%.3f-%.3f) GeV" % (xAxis.GetBinLowEdge(pt_range[n][0]), xAxis.GetBinLowEdge(pt_range[n][1]))
@@ -86,6 +87,7 @@ def TemplateFit(fname, dca_data, dca_mcplots, dcacpa, dca_mcplots_names, fit_ran
         fitmin = 0.9
         fitmax = 1.0
 
+    # graph initialization
     gChi = ROOT.TGraph(pt_ent - 1)
     m2ent = [0]*dca_ent
     dataEntries = []
@@ -107,6 +109,7 @@ def TemplateFit(fname, dca_data, dca_mcplots, dcacpa, dca_mcplots_names, fit_ran
         gDCA_mc[i].GetXaxis().SetTitleSize(0.05)
         gDCA_mc[i].GetXaxis().SetTitle("<p_{T}> (GeV)")
 
+    # main loop for fitting
     for n in range(pt_ent):
         # canvas for fitting
         canvas = ROOT.TCanvas("canvas_" + str(n + 1), "canvas_" + str(n + 1))
@@ -133,7 +136,7 @@ def TemplateFit(fname, dca_data, dca_mcplots, dcacpa, dca_mcplots_names, fit_ran
             hDCA_mc[i].SetTitle(pt_names[n])
             hDCA_mc[i].Scale(1. / hDCA_mc[i].Integral())
 
-        # fitting
+        # fit function
         adj = ftotal(data, hDCA_mc)
         ftot = ROOT.TF1("ftot", adj, fitmin, fitmax, dca_ent)
 
@@ -160,6 +163,7 @@ def TemplateFit(fname, dca_data, dca_mcplots, dcacpa, dca_mcplots_names, fit_ran
         htot.SetLineWidth(2)
         htot.Draw("same")
 
+        # legend
         legend = ROOT.TLegend(0.15, 0.40, 0.35, 0.8)
         legend.SetTextSize(0.05)
         legend.SetBorderSize(0)
@@ -214,8 +218,6 @@ def TemplateFit(fname, dca_data, dca_mcplots, dcacpa, dca_mcplots_names, fit_ran
         m2tot += dataEntries[i]
         for j in range(dca_ent):
             m2ent[j] += dataEntries[i]*parDCA_mc[j][i]
-    #if m2tot == 0:
-        #m2tot = 1
 
     data_bins = dca_data.GetXaxis().GetNbins()
     BinRanges_pT = arr.array('d', [0]*(data_bins + 1))
@@ -224,7 +226,7 @@ def TemplateFit(fname, dca_data, dca_mcplots, dcacpa, dca_mcplots_names, fit_ran
     for i in range(pt_ent - 1):
         pT_Weights.SetBinContent(i, dataEntries[i] / m2tot)
 
-    # what even is this
+    # chi2 graph
     gChi.SetLineWidth(2)
     gChi.GetXaxis().SetLabelSize(0.05)
     gChi.GetYaxis().SetLabelSize(0.05)
@@ -233,6 +235,7 @@ def TemplateFit(fname, dca_data, dca_mcplots, dcacpa, dca_mcplots_names, fit_ran
     gChi.GetXaxis().SetTitleSize(0.05)
     gChi.GetYaxis().SetTitleSize(0.05)
 
+    # canvas for all fractions
     fractions = ROOT.TCanvas("fractions", "fractions", 1024, 768)
     ROOT.gPad.SetGridy()
     fractions.cd()
