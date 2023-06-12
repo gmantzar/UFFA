@@ -5,7 +5,7 @@ class FemtoDreamReader(FR.FileReader):
     def __init__(self, ifile, directory = None):
         if directory == "":
             directory = "femto-dream-pair-task-track-track"
-        if directory[0] == '_':
+        elif directory[0] == '_':
             directory = "femto-dream-pair-task-track-track" + directory
         FR.FileReader.__init__(self, ifile, directory)
 
