@@ -1,9 +1,10 @@
 import ROOT
+import FileUtils as FU
 
 class FileReader:
     DEBUG = False
     def __init__(self, ifile, directory = None):
-        ifile = path_expand(ifile)
+        ifile = FU.path_expand(ifile)
         if not ROOT.gSystem.AccessPathName(ifile):
             self._ifile = ROOT.TFile(ifile, "read")
         else:
@@ -11,10 +12,10 @@ class FileReader:
         self._tree  = [self._ifile]
         self._wdir  = self._ifile
         if directory:
-            directory = path_fix(directory)
+            directory = FU.path_fix(directory)
             self._set_dir(directory)
 
-    # find object recursively
+    # find object in dir_obj
     def _find_obj(self, obj_name, dir_obj):
         obj = None
         try:                # try to find in TDirectory
@@ -30,7 +31,7 @@ class FileReader:
 
     # set directory
     def _set_dir(self, dir_name):
-        dir_name = path_fix(dir_name)
+        dir_name = FU.path_fix(dir_name)
         name_list = dir_name.rsplit('/')
         for name in name_list:
             dir_new = self._find_obj(name, self._wdir)              # find in current directory
@@ -51,7 +52,7 @@ class FileReader:
 
     # find and return object
     def _get_obj(self, obj_name):
-        obj_name = path_fix(obj_name)
+        obj_name = FU.path_fix(obj_name)
         name_list = obj_name.rsplit('/')
         obj = self._find_obj(name_list[0], self._wdir)
         if not obj:
@@ -71,7 +72,13 @@ class FileReader:
     # retrieves a histogram by name in the current directory
     # or if given, from the full path or a subdirectory
     def get_histo(self, histo_name, dir_name = None):
-        dir_name = path_fix(dir_name)
+        dir_name = FU.path_fix(dir_name)
+        if not dir_name or dir_name == "":
+            return self._get_obj(histo_name)
+        return self._get_obj(dir_name + '/' + histo_name)
+
+    def getHisto(self, histo_name, dir_name = None):
+        dir_name = FU.path_fix(dir_name)
         if not dir_name or dir_name == "":
             return self._get_obj(histo_name)
         return self._get_obj(dir_name + '/' + histo_name)
@@ -79,7 +86,33 @@ class FileReader:
     # function to retrieve all histograms in a directory as a list
     def get_histos(self, dir_name = None):
         if dir_name:
-            dir_name = path_fix(dir_name)             # fix the path
+            dir_name = FU.path_fix(dir_name)             # fix the path
+            directory = self._get_obj(dir_name)             # set directory
+        else:
+            directory = self._wdir                          # find in current directory
+        histos = []
+        if directory.Class() == ROOT.TList.Class():         # for TList
+            lnk = directory.FirstLink()
+            lobj_ent = directory.GetEntries()
+        else:                                               # for TDirectory
+            lobj = directory.GetListOfKeys()
+            lobj_ent = lobj.GetEntries()
+            lnk = lobj.FirstLink()
+        for n in range(lobj_ent):                           # iterate over entries
+            if directory.Class() == ROOT.TList.Class():
+                obj = lnk.GetObject()
+            else:
+                obj = lnk.GetObject().ReadObj()
+            if obj.InheritsFrom(ROOT.TH1.Class()):          # check if its a derivative of TH1
+                histos.append(obj)
+            lnk = lnk.Next()
+        for hist in histos:
+            hist.SetDirectory(0)
+        return histos
+
+    def getHistos(self, dir_name = None):
+        if dir_name:
+            dir_name = FU.path_fix(dir_name)             # fix the path
             directory = self._get_obj(dir_name)             # set directory
         else:
             directory = self._wdir                          # find in current directory
@@ -106,7 +139,7 @@ class FileReader:
     # function to retrieve a full directory as a list
     def get_dir(self, dir_name = None):
         if dir_name:
-            dir_name = path_fix(dir_name)
+            dir_name = FU.path_fix(dir_name)
             directory = self._get_obj(dir_name)
         else:
             directory = self._wdir
@@ -129,7 +162,7 @@ class FileReader:
             entry.SetDirectory(0)
         return dir_content
 
-    # function to chance directory
+    # function to change directory
     def cd(self, dir_name = None):
         if not dir_name and dir_name != 0:
             if len(self._tree) == 1:
@@ -145,7 +178,6 @@ class FileReader:
                 self._wdir = self._ifile
                 self._tree = [self._ifile]              # reset working directory list
             else:
-                dir_name = path_fix(dir_name)
                 self._set_dir(dir_name)
 
     # list directory content
@@ -179,26 +211,9 @@ class FileReader:
             print("file: \"" + self._ifile.GetName() + "\"")
         return self._ifile.GetName()
 
-    # set DEBUG
-    def debug(self, var = True):
-        FileReader.DEBUG = bool(var)
-
-# expand ~ to home directory
-def path_expand(ifile):
-    if ifile[0] == '~':
-        home = ROOT.gSystem.GetHomeDirectory()
-        home += ifile[1:]
-        return home
-    else:
-        return ifile
-
-# fix dir path, i.e. remove preceding and trailing /
-def path_fix(dir_name):
-    if dir_name:
-        if dir_name[-1] == '/':
-            dir_name = dir_name[:-1]
-        if dir_name[0] == '/':
-            dir_name = dir_name[1:]
-    else:
-        dir_name = ""
-    return dir_name
+    # toggle debug output or set with 'option'
+    def setDebug(option = None):
+        if type(option) == bool:
+            FileReader.DEBUG = option
+            return
+        FileReader.DEBUG = not FileReader.DEBUG
