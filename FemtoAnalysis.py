@@ -1,177 +1,77 @@
 import ROOT
+import FileUtils as FU
+import FemtoDreamSaver as FDS
 import FemtoDreamReader as FDR
 import CorrelationHandler as CH
-import v2TemplateFit as TF
-import time
+import TemplateFit as TF
 
-def UFFA_pp(fname, fdir, new_file, atype, htype, mc = None, bins = None, rebin = None, dirOut = None):
-    conf = config(dirOut, fname, fdir, new_file, atype, htype, mc, bins, rebin)
-    # file reader
-    fdr = FDR.FemtoDreamReader(fname, fdir)
-    # correlation calculation
+def UFFA(settings):
+    match settings['function']:
+        case 'cf':
+            UFFA_cf(settings)
+        case 'tf':
+            UFFA_tf(settings)
+
+# correlation function
+def UFFA_cf(settings):
+    conf = config(settings)
+    fdr = FDR.FemtoDreamReader(conf['fullpath'], conf['fileTDir'])
     ch = cf_handler(fdr, conf)
-    # file saver
-    fds = FemtoDreamSaver(ch.get_histos(), conf)
+    fds = FDS.FemtoDreamSaver(conf, ch.get_histos())
 
-def UFFA_pp_syst(fname, fdir, new_file, atype, htype, mc = None, bins = None, rebin = None, dirOut = None):
-    conf = config(dirOut, fname, fdir, new_file, atype, htype, mc, bins, rebin)
-    fdr = FDR.FemtoDreamReader(fname, fdir)
+# template fits
+def UFFA_tf(settings):
+    conf = config(settings)
+    if conf['file']:
+        fdr1 = FDR.FemtoDreamReader(conf['fullpath'], conf['fileTDir'])
+        dca_data = fdr1.get_dca()
+    elif conf['data']:
+        dca_data = conf['data']
+    else:
+        print('UFFA_tf: Missing input data!')
+    if conf['templates']:
+        if type(conf['templates']) == str:
+            fdr2 = FDR.FemtoDreamReader(conf['templates'], conf['mcTDir'])
+            dca_mcplots = fdr2.get_dca_mc()
+        else:
+            dca_mcplots = conf['templates']
+    else:
+        dca_mcplots = fdr1.get_dca_mc()
 
-    se = fdr.get_se()
-    xaxis = se.GetXaxis()
-    xbins = se.GetNbinsX()
-    ybins = 512
+    fds = FDS.FemtoDreamSaver(settings)
+    ofile = fds.getFile()
+    bins = [conf['bins'], conf['rebin']] if conf['rebin'] else conf['bins']
+    TF.TemplateFit(ofile, dca_data, dca_mcplots, conf['tftype'], conf['namelist'], conf['fitrange'], bins, conf['outDir'])
 
-    # default cf
-    ch = cf_handler(fdr, conf)
-    cf, cf_rebin = ch.get_cf()
-
-    # histograms
-    h2cf_var = ROOT.TH2D("CF", "CF", xbins, xaxis.GetXmin(), xaxis.GetXmax(), ybins, 0, 3)
-    h2cf_dif = ROOT.TH2D("CF diff", "CF diff", xbins, xaxis.GetXmin(), xaxis.GetXmax(), ybins*2, -3, 3)
-    cf_sys = ROOT.TH1D("syst", "syst", xbins, xaxis.GetXmin(), xaxis.GetXmax())
-    cf_dev = ROOT.TH1D("std dev", "std dev", xbins, xaxis.GetXmin(), xaxis.GetXmax())
-    # lists for the rebinned versions
-    h2cf_var_rebin = []
-    h2cf_dif_rebin = []
-    cf_sys_rebin = []
-    cf_dev_rebin = []
-    if rebin:
-        for i in range(len(rebin)):
-            h2cf_var_rebin.append(ROOT.TH2D("cf rebin: " + rebin[i], "cf rebin: " + rebin[i], xbins, xaxis.GetXmin(), xaxis.GetXmax(), ybins, 0, 3))
-            h2cf_dif_rebin.append(ROOT.TH2D("cf diff rebin: " + rebin[i], "cf diff rebin: " + rebin[i], xbins, xaxis.GetXmin(), xaxis.GetXmax(), ybins*2, -3, 3))
-            cf_sys_rebin.append(ROOT.TH1D("syst rebin: " + rebin[i], "syst rebin: " + rebin[i], xbins, xaxis.GetXmin(), xaxis.GetXmax()))
-            cf_dev_rebin.append(ROOT.TH1D("std dev rebin: " + rebin[i], "std dev rebin: " + rebin[i], xbins, xaxis.GetXmin(), xaxis.GetXmax()))
-            h2cf_var_rebin.RebinX(rebin[i])
-            h2cf_dif_rebin.RebinX(rebin[i])
-            cf_sys_rebin.Rebin(rebin[i])
-            cf_dev_rebin.Rebin(rebin[i])
-
-    n = 0
-    file_dir = fdr.get_dir()
-    # loop over data variations in file and calculate the cf for each
-    # which is then saved in a th2 from which the systematic error is computed and saved in a th2
-    while (fdr.cd(file_dir + "_var" + n)):
-        ch_var = cf_handler(fdr, conf)
-        cf_var, cf_var_rebin = ch_var.get_cf()
-        del ch_var
-
-        # fill the th2 with each cf
-        for i in range(cf_var.GetEntries()):
-            h2cf_var.Fill(i + 1, cf_var.GetBinContent(i))
-        if rebin:
-            for i in range(len(rebin)):
-                for j in range(cf_var_rebin[i]):
-                    h2cf_var_rebin[i].Fill(j + 1, cf_var_rebin[i].GetBinContent(j))
-        n += 1
-
-    # loop over each x bin and get the content
-    for i in range(xbins):
-        value_def = cf.GetBinContent(i)
-        cf_proj = h2cf_var.ProjectionY("cf bin: " + str(i + 1), i + 1, i + 1)
-        dev = cf_proj.GetStdDev()
-        cf_dev.SetBinContent(i + 1, dev)
-        for j in range(ybins):
-            value_var = cf_proj.GetBinContent(j)
-            h2cf_dif.Fill(i + 1, value_def - value_var)                     # fill th2 with difference to default
-        dif_proj = h2cf_dif.ProjectionY("diff bin: " + str(i + 1), i + 1, i + 1)
-        proj_min = dif_proj.GetBinContent(dif_proj.FindFirstBinAbove(0))    # minimum value of difference
-        proj_max = dif_proj.GetBinContent(dif_proj.FindLastBinAbove(0))     # maximum value of difference
-        cf_sys.SetBinContent(i + 1, (proj_max - proj_min) / (12**0.5))      # assume a square distribution
-        # same loop for all the rebinned versions
-        if rebin:
-            for j in range(len(rebin)):
-                value_def = cf_rebin[j]
-                cf_proj_rebin = h2cf_var_rebin[j].Projection("cf rebin: " + rebin[j] + " bin: " + str(i + 1), i + 1, i + 1)
-                dev = cf_proj_rebin.GetStdDev()
-                cf_dev_rebin[j].SetBinContent(i + 1, dev)
-                for k in range(ybins):
-                    value_var = cf_proj_rebin.GetBinContent(k)
-                    h2cf_dif_rebin[j].Fill(i + 1, value_def - value_var)
-                dif_proj_rebin = h2cf_dif_rebin[j].Projection("diff rebin: " + rebin[j] + " bin: " + str(i + 1), i + 1, i + 1)
-                proj_min = dif_proj_rebin.GetBinContent(dif_proj_rebin.FindFirstBinAbove(0))
-                proj_max = dif_proj_rebin.GetBinContent(dif_proj_rebin.FindLastBinAbove(0))
-                cf_sys_rebin[j].SetBinContent(i + 1, (proj_max - proj_min) / (12**0.5))
-
-    ofile = ROOT.TFile("UFFA_syst_" + conf[1], "recreate")
-    root = ofile.mkdir(conf[2])
-    root.cd()
-
-    cf.Write()
-    h2cf_var.Write()
-    h2cf_dif.Write()
-    cf_sys.Write()
-    cf_dev.Write()
-
-    for i in range(len(rebin)):
-        new_dir = root.mkdir("rebin: " + rebin[i])
-        new_dir.cd()
-
-        cf_rebin[i].Write()
-        h2cf_var_rebin[i].Write()
-        h2cf_dif_rebin[i].Write()
-        cf_sys_rebin[i].Write()
-        cf_dev_rebin[i].Write()
-
-def UFFA_pp_syst2(fname, fdir, new_file, atype, htype, mc = None, bins = None, rebin = None, dirOut = None):
+def UFFA_syst(fname, fdir, new_file, atype, htype, mc = None, bins = None, rebin = None, dirOut = None):
     conf = config(dirOut, fname, fdir, new_file, atype, htype, mc, bins, rebin)
     fdr = FDR.FemtoDreamReader(fname, fdir)
 
     # default cf
     ch = cf_handler(fdr, conf)
-    cf, cf_rebin = ch.get_cf()
+    cf, cf_unw = ch.get_cf()
+    cf, cf_rebin = cf
 
-    h2cf_var_rebin = []
-    h2cf_dif_rebin = []
-    cf_sys_rebin = []
-    cf_dev_rebin = []
+    # systematics
+    syst = Systematics(cf)
 
-    n = 0
-    file_dir = fdr.get_dir()
     # loop over data variations in file and calculate the cf for each
     # which is then saved in a th2 from which the systematic error is computed and saved in a th2
+    file_dir = fdr.get_dir()
     while (fdr.cd(file_dir + "_var" + n)):
         ch_var = cf_handler(fdr, conf)
-        cf_var, cf_var_rebin = ch_var.get_cf()
+        cf_var, cf_var_rebin = ch_var.get_cf()[0]
+
+        # add variation
+        syst.AddVar(cf_var)
+
+        n += 1
         del ch_var
 
-        # fill the th2 with each cf
-        for i in range(cf_var.GetEntries()):
-            h2cf_var.Fill(i + 1, cf_var.GetBinContent(i))
-        if rebin:
-            for i in range(len(rebin)):
-                for j in range(cf_var_rebin[i]):
-                    h2cf_var_rebin[i].Fill(j + 1, cf_var_rebin[i].GetBinContent(j))
-        n += 1
+    # generate th2 plots for systematics
+    syst.GenSyst()
 
-    # loop over each x bin and get the content
-    for i in range(xbins):
-        value_def = cf.GetBinContent(i)
-        cf_proj = h2cf_var.ProjectionY("cf bin: " + str(i + 1), i + 1, i + 1)
-        dev = cf_proj.GetStdDev()
-        cf_dev.SetBinContent(i + 1, dev)
-        for j in range(ybins):
-            value_var = cf_proj.GetBinContent(j)
-            h2cf_dif.Fill(i + 1, value_def - value_var)                     # fill th2 with difference to default
-        dif_proj = h2cf_dif.ProjectionY("diff bin: " + str(i + 1), i + 1, i + 1)
-        proj_min = dif_proj.GetBinContent(dif_proj.FindFirstBinAbove(0))    # minimum value of difference
-        proj_max = dif_proj.GetBinContent(dif_proj.FindLastBinAbove(0))     # maximum value of difference
-        cf_sys.SetBinContent(i + 1, (proj_max - proj_min) / (12**0.5))      # assume a square distribution
-        # same loop for all the rebinned versions
-        if rebin:
-            for j in range(len(rebin)):
-                value_def = cf_rebin[j]
-                cf_proj_rebin = h2cf_var_rebin[j].Projection("cf rebin: " + rebin[j] + " bin: " + str(i + 1), i + 1, i + 1)
-                dev = cf_proj_rebin.GetStdDev()
-                cf_dev_rebin[j].SetBinContent(i + 1, dev)
-                for k in range(ybins):
-                    value_var = cf_proj_rebin.GetBinContent(k)
-                    h2cf_dif_rebin[j].Fill(i + 1, value_def - value_var)
-                dif_proj_rebin = h2cf_dif_rebin[j].Projection("diff rebin: " + rebin[j] + " bin: " + str(i + 1), i + 1, i + 1)
-                proj_min = dif_proj_rebin.GetBinContent(dif_proj_rebin.FindFirstBinAbove(0))
-                proj_max = dif_proj_rebin.GetBinContent(dif_proj_rebin.FindLastBinAbove(0))
-                cf_sys_rebin[j].SetBinContent(i + 1, (proj_max - proj_min) / (12**0.5))
-
+    # save output
     ofile = ROOT.TFile("UFFA_syst_" + conf[1], "recreate")
     root = ofile.mkdir(conf[2])
     root.cd()
@@ -211,14 +111,14 @@ class Systematics():
 
     def GenSyst(self):
         for i in range(self.xbins):
-            cf_proj = self._var.ProjectionY("cf xbin: " + str(i + 1), i + 1, i + 1)
+            cf_proj = self._var.ProjectionY("cf xbin" + str(i + 1), i + 1, i + 1)
             dev = cf_proj.GetStdDev()
             self._dev.SetBinContent(i + 1, dev)
             cont_def = self._cf.GetBinContent(i)
             for j in range(ybins):
                 cont_var = cf_proj.GetBinContent(j)
                 self._dif.Fill(i + 1, cont_def - cont_var)                      # fill th2 with difference to default
-            dif_proj = self._dif.ProjectionY("diff xbin: " + str(i + 1), i + 1, i + 1)
+            dif_proj = self._dif.ProjectionY("diff xbin" + str(i + 1), i + 1, i + 1)
             proj_min = dif_proj.GetBinContent(dif_proj.FindFirstBinAbove(0))    # minimum value of difference
             proj_max = dif_proj.GetBinContent(dif_proj.FindLastBinAbove(0))     # maximum value of difference
             self._sys.SetBinContent(i + 1, (proj_max - proj_min) / (12**0.5))   # assume a square distribution
@@ -238,55 +138,17 @@ class Systematics():
     def GetAll(self):
         return [self._var, self._dif, self._sys, self._dev]
 
-TF_conf = {
-        "type": None,
-        "fit_range": None,
-        "pt_bins": None,
-        "names": None,
-        "data": None,
-        "data_dir": None,
-        "mc": None,
-        "mc_dir": None,
-        "rename": None,
-        "dirOut": None
-        }
-
-def TemplateFit(dcacpa, fit_range, pt_bins, dca_mcplots_names, data_file, data_dir,
-                mc_file = None, mc_dir = None, fname = None, dirOut = None):
-    if type(data_file) == str:
-        fdr1 = FDR.FemtoDreamReader(data_file, data_dir)
-        dca_data = fdr1.get_dca()
-        if not dca_data:
-            dca_data = fdr1.get_histo("Tracks_one/DCAxy")
-    else:
-        dca_data = data_file
-    if mc_file:
-        if type(mc_file) == str:
-            fdr2 = FDR.FemtoDreamReader(mc_file, mc_dir)
-            dca_mcplots = fdr2.get_dca_mc()
-        else:
-            dca_mcplots = mc_file
-    else:
-        dca_mcplots = fdr1.get_dca_mc()
-
-    if not fname:
-        fname = data_file
-    TF.TemplateFit(fname, dca_data, dca_mcplots, dcacpa, dca_mcplots_names, fit_range, pt_bins, dirOut)
-
-def tf_binning(pt_bins):
-    if type(pt_bins) == int:
-        pass
-
-
 # class that handles the retrieving of histos and computing of correlation functions
 class cf_handler():
     def __init__(self, FileReader, conf):
-        self._file = FileReader
-        self._atype = conf[3]   # analysis type
-        self._htype = conf[4]   # histo type
-        self._mc    = conf[5]   # bool monte carlo data
-        self._bins  = conf[6]   # bin range for differential
-        self._rebin = conf[7]   # rebin factors for all se, me, cf plots
+        self._file  = FileReader
+        self._pair  = conf['pair']
+        self._atype = conf['atype']         # analysis type
+        self._htype = conf['htype']         # histo type
+        self._mc    = conf['mc']            # bool monte carlo data
+        self._bins  = conf['bins']          # bin range for differential
+        self._rebin = conf['rebin']         # rebin factors for all se, me, cf plots
+        self._norm  = conf['normalize']     # normalization range
         self._se = None
         self._me = None
         self._se_mc = None
@@ -327,13 +189,13 @@ class cf_handler():
         histos_unw = []
         histos_unw_mc = []
         if self._atype == 1:        # integrated analysis
-            histos, histos_unw = getIntegrated(self._se, self._me, self._htype, self._rebin)
+            histos, histos_unw = getIntegrated(self._se, self._me, self._htype, self._rebin, self._norm)
             if self._mc:
-                histos_mc, histos_unw_mc = getIntegrated(self._se_mc, self._me_mc, self._htype, self._rebin)
+                histos_mc, histos_unw_mc = getIntegrated(self._se_mc, self._me_mc, self._htype, self._rebin, self._norm)
         elif self._atype == 2:      # differential analysis
-            histos = getDifferential(self._se, self._me, self._htype, self._bins, self._rebin)
+            histos = getDifferential(self._se, self._me, self._htype, self._bins, self._rebin, self._norm)
             if self._mc:
-                histos_mc = getDifferential(self._se_mc, self._me_mc, self._htype, self._bins, self._rebin)
+                histos_mc = getDifferential(self._se_mc, self._me_mc, self._htype, self._bins, self._rebin, self._norm)
 
         return [histos, histos_unw, histos_mc, histos_unw_mc, self._event, self._tracks, self._tracks_mc]
 
@@ -345,11 +207,11 @@ class cf_handler():
         cf_list = []
         cf_list_unw = []
         if self._atype == 1:        # integrated analysis
-            histos, histos_unw = getIntegrated(self._se, self._me, self._htype, self._rebin)
+            histos, histos_unw = getIntegrated(self._se, self._me, self._htype, self._rebin, self._norm)
             cf_list_unw.append(histos_unw[0][1])
             cf_list_unw.append([])
         elif self._atype == 2:      # differential analysis
-            histos = getDifferential(self._se, self._me, self._htype, self._bins, self._rebin)
+            histos = getDifferential(self._se, self._me, self._htype, self._bins, self._rebin, self._norm)
 
         cf_list.append(histos[1][2])
         cf_list.append([])
@@ -365,254 +227,164 @@ class cf_handler():
 
         return [cf_list, cf_list_unw]
 
-# class that handles the saving of the histograms in the correct file structure
-class FemtoDreamSaver():
-    last_edit = None
-
-    def __init__(self, histos, conf):
-        self._histos = histos   # all histos from the cf_handler
-        self._ipath = conf[0]   # path to file
-        self._oname = conf[1]   # name of file
-        self._idir  = conf[2]   # TDirectory name
-        self._atype = conf[3]   # analysis type
-        self._htype = conf[4]   # histo type
-        self._mc    = conf[5]   # bool monte carlo data
-        self._bins  = conf[6]   # bin range for differential
-        self._rebin = conf[7]   # rebin factors for all se, me, cf plots
-        self._nfile = conf[8]   # "new", "recreate" or "update"
-        self._opath = conf[9]   # output directory
-        self._save_histos()
-
-    # write all histos from the list 'histos'
-    def _write(self, histos):
-        for hist in histos:
-            hist.Write()
-
-    # make directory in dir_root with name dir_name and save all histos from the list 'histos'
-    def _mkdir_write(self, dir_root, dir_name, histos):
-        dir_new = dir_root.mkdir(dir_name)
-        dir_new.cd()
-        try:
-            self._write(histos)
-        except:
-            pass
-        dir_root.cd()
-        del dir_new
-
-    # function that looks if 'file' exists and if yes it append -n, where n depends on if another file was already created
-    def _file_exists(self, file):
-        if not ROOT.gSystem.AccessPathName(file):
-            name, ext = file.rsplit('.')
-            digit = 1
-            while not ROOT.gSystem.AccessPathName(name + '-' + str(digit) + '.' + ext):
-                digit += 1
-            file = name + '-' + str(digit) + '.' + ext
-        return file
-
-    # function that saves all the histos in the correct file format
-    # Obacht! very chunky function!
-    def _save_histos(self):
-        # for "new" file: rename output if the output file already exists
-        if self._nfile == "new":
-            new_name = self._file_exists(self._opath + "UFFA_" + self._oname)
-            print(new_name + " created!")
-            self._oname = new_name
-            ofile_name = self._opath + self._oname
-            FemtoDreamSaver.last_edit = self._oname
-        else:
-            ofile_name = self._opath + "UFFA_" + self._oname
-
-        if FemtoDreamSaver.last_edit:
-            ofile_name = FemtoDreamSaver.last_edit
-        ofile = ROOT.TFile(ofile_name, self._nfile)
-
-        if self._atype == 1:        # integrated
-            hist_std = self._histos[0]      # [[iSE, iME], [se, me, cf], [se rebin1, me rebin1, cf rebin1], ...]
-            hist_unw = self._histos[1]      # [[me unw, cf unw], [me unw rebin1, cf unw rebin1], ...]
-            hist_in  = hist_std[0]          # [iSE, iME]
-            hist_smc = hist_std[1]          # [se, me, cf]
-            if self._mc:            # monte carlo
-                hist_std_mc = self._histos[2]
-                hist_in_mc  = hist_std_mc[0]
-                hist_smc_mc = hist_std_mc[1]
-                if self._htype == 2:
-                    hist_unw_mc = self._histos[3]
-        elif self._atype == 2:      # differential
-            hist_std = self._histos[0]      # [[iSE, iME], [se, me, cf], [[se rebin1, me rebin1, cf rebin1], ...], ...]
-            hist_in  = hist_std[0]          # [iSE, iME]
-            if self._mc:            # monte carlo
-                hist_std_mc = self._histos[2]
-                hist_in_mc  = hist_std_mc[0]
-
-        hist_event = self._histos[4]
-        hist_track = self._histos[5]
-        if self._mc:
-            hist_track_mc = self._histos[6]
-            hist_pur = getPurity(hist_track[0], hist_track_mc[0])
-
-        default = "femto-dream-pair-task-track-track"
-        if self._idir == "" or self._idir == default:
-            dir_root = ofile.mkdir(default + "_std")
-        elif self._idir[0] == '_':
-            dir_root = ofile.mkdir(default + self._idir)
-        else:
-            dir_root = ofile.mkdir(self._idir)
-        dir_root.cd()
-
-        if self._atype == 1:            # integrated
-            self._write(hist_in)        # iSE, iME
-            self._write(hist_smc)       # se, me, cf
-            if self._htype == 2:
-                self._write(hist_unw[0])   # me unw, cf unw
-            if self._rebin:             # all rebinned se, me, cf, me unw, cf unw, in individual directories
-                for n in range(len(self._rebin)):
-                    dir_rebin = dir_root.mkdir("rebin: " + str(self._rebin[n]))
-                    dir_rebin.cd()
-                    self._write(hist_std[2][n])        # [[iSE, iME], [no rebin], [1st rebin], [2nd rebin], ...]
-                    if self._htype == 2:
-                        self._write(hist_unw[1][n])    # [[no rebin], [1st rebin], [2nd rebin], ...]
-                    dir_root.cd()
-                    del dir_rebin
-            self._mkdir_write(dir_root, "Event", hist_event)
-            self._mkdir_write(dir_root, "Tracks_one", hist_track)
-            if self._mc:
-                dir_mc = dir_root.mkdir("mc")
-                dir_mc.cd()
-                self._write(hist_in_mc)
-                self._write(hist_smc_mc)
-                if self._htype == 2:
-                    self._write(hist_unw_mc[0])
-                if self._rebin:         # rebin directories in main directory
-                    for n in range(len(self._rebin)):
-                        dir_rebin = dir_mc.mkdir("rebin: " + str(self._rebin[n]))
-                        dir_rebin.cd()
-                        self._write(hist_std_mc[2][n])
-                        if self._htype == 2:
-                            self._write(hist_unw_mc[1][n])
-                        dir_mc.cd()
-                        del dir_rebin
-                self._mkdir_write(dir_root, "Tracks_one_MC", hist_track_mc)
-                hist_pur.Write()
-
-        elif self._atype == 2:          # differential
-            self._write(hist_in)
-            for n in range(len(self._bins) - 1):    # list: [1, 2, 3, 4] -> ranges: [1-2, 2-3, 3-4]
-                dir_bin = dir_root.mkdir("bin: " + str(n + 1))
-                dir_bin.cd()
-                if self._rebin:         # rebin directories inside each mt/mult bin directory
-                    self._write(hist_std[1 + 2*n])
-                    for m in range(len(self._rebin)):
-                        dir_rebin = dir_bin.mkdir("rebin: " + str(self._rebin[m]))
-                        dir_rebin.cd()
-                        self._write(hist_std[2 + 2*n][m])
-                        dir_bin.cd()
-                        del dir_rebin
-                else:
-                    self._write(hist_std[1 + n])
-                dir_root.cd()
-                del dir_bin
-            self._mkdir_write(dir_root, "Event", hist_event)
-            self._mkdir_write(dir_root, "Tracks_one", hist_track)
-            if self._mc:                # monte carlo directory
-                dir_mc = dir_root.mkdir("mc")
-                dir_mc.cd()
-                self._write(hist_in_mc)
-                for n in range(len(self._bins) - 1):    # list: [1, 2, 3, 4] -> ranges: [1-2, 2-3, 3-4]
-                    dir_bin = dir_mc.mkdir("bin: " + str(n + 1))
-                    dir_bin.cd()
-                    if self._rebin:     # rebin directories inside each mt/mult bin directory
-                        self._write(hist_std_mc[1 + 2*n])
-                        for m in range(len(self._rebin)):
-                            dir_rebin = dir_bin.mkdir("rebin: " + str(self._rebin[m]))
-                            dir_rebin.cd()
-                            self._write(hist_std[2 + 2*n][m])
-                            dir_bin.cd()
-                            del dir_rebin
-                    else:
-                        self._write(hist_std[1 + n])
-                    del dir_bin
-                del dir_mc
-                self._mkdir_write(dir_root, "Tracks_one_MC", hist_track_mc)
-
-# generates list with rebin factors
-def bin2list(rebin):
-    rebin_list = []
-    if type(rebin) == int:
-        rebin = [rebin]
-    elif type(rebin) != list:
-        print("rebin factor is not an int or a list!")
-        exit()
-    rebin_list.extend(rebin)
-    return rebin_list
-
 # returns list with the configured settings
 # [path, file name, infile dir, analysis type, hist type, mc, bin range, rebin factors]
-def config(dirOut = None, fname = None, fdir = None, new_file = None,
-           atype = None, htype = None, mc = None, bins = None, rebin = None):
-    k_keys = ['k', 'kstar', '1']
+def config(dic_conf):
+    dic = {
+            "function":     None,
+            "pair":         None,
+            "path":         "",
+            "file":         None,
+            "fullpath":     None,
+            "fileTDir":     "",
+            "newfile":      None,
+            "mc":           None,
+            "mcTDir":       "",
+            "outDir":       "",
+            "rename":       None,
+            "bins":         None,
+            "rebin":        None,
+            "atype":        None,
+            "htype":        None,
+            "tftype":       None,
+            "data":         None,
+            "templates":    None,
+            "namelist":     None,
+            "fitrange":     None,
+            "normalize":    None,
+            "debug":        False
+        }
+
+    k_keys    = ['k', 'kstar', '1']
     mult_keys = ['mult', 'kmult', '2']
-    mt_keys = ['mt', 'kmt', '3']
-    int_keys = ['int', 'integrated', '1']
-    dif_keys = ['diff', 'differential', '2']
+    mt_keys   = ['mt', 'kmt', '3']
+    int_keys  = ['int', 'integrated', '1']
+    dif_keys  = ['diff', 'differential', '2']
 
-    path_name = fname.rsplit('/', 1)
-    if len(path_name) == 1:
-        ipath = ""
-        iname = path_name[0]
+    # function to be used
+    if 'function' in dic_conf:
+        dic['function'] = dic_conf['function']
+
+    # type of particle pair
+    if 'pair' in dic_conf:
+        dic['pair'] = dic_conf['pair']
+
+    # input directory
+    if 'path' in dic_conf:
+        dic['path'] = dic_conf['path']
+
+    # file name, file directory
+    if 'file' in dic_conf:
+        path_name = dic_conf['file'].rsplit('/', 1)
+        if len(path_name) == 1:
+            dic['file']  = path_name[0]
+        else:
+            dic['path'] = FU.path_expand(path_name[0]) + '/'
+            dic['file']  = path_name[1]
+    dic['fullpath'] = dic['path'] + dic['file']
+
+    # file TDir/TList
+    if 'fileTDir' in dic_conf:
+        if dic_conf['fileTDir'] == "":
+            dic['fileTDir'] = "femto-dream-pair-task-track-track"
+        elif dic_conf['fileTDir'][0] == '_':
+            dic['fileTDir'] = "femto-dream-pair-task-track-track" + dic_conf['fileTDir']
+        else:
+            dic['fileTDir'] = dic_conf['fileTDir']
+
+    if 'outDir' in dic_conf:
+        if dic_conf['outDir'] != "" and dic_conf['outDir']:
+            dic['outDir'] = FU.path_expand(dic_conf['outDir'])
+            if ROOT.gSystem.AccessPathName(dic['outDir']):
+                print("output directory \"" + dic['outDir'] + "\" does not exist!")
+                exit()
     else:
-        ipath = path_name[0] + '/'
-        iname = path_name[1]
+        dic['outDir'] = dic['path']
 
-    if ROOT.gSystem.AccessPathName(ipath + iname):
-        print("file \"" + ipath + iname + "\" not found!")
-        exit()
+    # rename output file
+    if 'rename' in dic_conf:
+        dic['rename'] = dic_conf['rename']
 
-    if not fdir:
-        idir = ""
-    else:
-        idir = fdir             # TDirectory in file
-
-    if not dirOut:
-        dirOut = ipath
-    if ROOT.gSystem.AccessPathName(dirOut):
-        print("output directory \"" + dirOut + "\" does not exist!")
-        exit()
-
-    if new_file == 1:
-        new_file = "new"
-    elif new_file == 2:
-        new_file = "recreate"
-    elif new_file == 3:
-        new_file = "update"
-    else:
-        print("\nInput error:\tWrong 'new_file' option!\nOptions:\n\t1 -> \"new\"\n\t2 -> \"recreate\"\n\t3 -> \"update\"\n")
-        exit()
+    # create file
+    if 'newfile' in dic_conf:
+        if dic_conf['newfile'] in [1, "new"]:
+            dic['newfile'] = "new"
+        if dic_conf['newfile'] in [2, "recreate"]:
+            dic['newfile'] = "recreate"
+        if dic_conf['newfile'] in [3, "update"]:
+            dic['newfile'] = "update"
 
     # analysis type
-    atype = str(atype).lower()
-    if atype in int_keys:
-        atype = 1
-    elif atype in dif_keys:
-        atype = 2
+    if 'atype' in dic_conf:
+        atype = dic_conf['atype']
+        if type(atype) == str:
+            atype = atype.lower()
+        if atype in int_keys:
+            dic['atype'] = 1
+        elif atype in dif_keys:
+            dic['atype'] = 2
 
     # histogram type
-    htype = str(htype).lower()
-    if htype in k_keys:
-        htype = 1
-    elif htype in mult_keys:
-        htype = 2
-    elif htype in mt_keys:
-        htype = 3
+    if 'htype' in dic_conf:
+        htype = dic_conf['htype']
+        if type(htype) == str:
+            htype = htype.lower()
+        if htype in k_keys:
+            dic['htype'] = 1
+        elif htype in mult_keys:
+            dic['htype'] = 2
+        elif htype in mt_keys:
+            dic['htype'] = 3
 
-    if mc:
-        mc = True
+    # template fit type
+    if 'tftype' in dic_conf:
+        tftype = dic_conf['tftype'].lower()
+        if tftype == 'dca':
+            dic['tftype'] = 1
+        elif tftype == 'cpa':
+            dic['tftype'] = 2
 
-    if rebin:
-        rebin = bin2list(rebin)
-    else:
-        rebin = None
+    # mc data file
+    if 'mc' in dic_conf:
+        dic['mc'] = dic_conf['mc']
 
-    return [ipath, iname, idir, atype, htype, mc, bins, rebin, new_file, dirOut]
+    # mc data file TDir/TList
+    if 'mcTDir' in dic_conf:
+        dic['mcTDir'] = dic_conf['mcTDir']
+
+    # bin ranges
+    if 'bins' in dic_conf:
+        dic['bins'] = dic_conf['bins']
+
+    # rebin factor/s
+    if 'rebin' in dic_conf:
+        dic['rebin'] = bin2list(dic_conf['rebin'])
+
+    # general purpose data entry
+    if 'data' in dic_conf:
+        dic['data'] = dic_conf['data']
+
+    # template file/plots
+    if 'templates' in dic_conf:
+        dic['templates'] = dic_conf['templates']
+
+    # names for template file/plots
+    if 'namelist' in dic_conf:
+        dic['namelist'] = dic_conf['namelist']
+
+    # fitrange
+    if 'fitrange' in dic_conf:
+        dic['fitrange'] = dic_conf['fitrange']
+
+    # normalize cf in range
+    if 'normalize' in dic_conf:
+        dic['normalize'] = dic_conf['normalize']
+
+    # normalize cf in range
+    if 'debug' in dic_conf:
+        dic['debug'] = bool(dic_conf['debug'])
+
+    return dic
 
 # splits th2 in section based on provided bins
 def getBinRangeHistos(iSE, iME, bins):
@@ -644,11 +416,12 @@ def getPurity(hPt, hPt_mc):
     return ratio
 
 # helper function for the CF
-def getCorrelation(se, me, name, conf):
+def getCorrelation(se, me, name, conf, norm = None):
     ch = CH.CorrelationHandler(name, se, me)
     #ch.normalize()
     ch.make_cf()
-    ch.normalize_cf(0.24, 0.34)
+    minmax = norm if norm else [0.24, 0.34]
+    ch.normalize_cf(minmax[0], minmax[1])
     se = ch.get_se().Clone("SE")
     me = ch.get_me().Clone("ME")
     cf = ch.get_cf().Clone("CF")
@@ -661,7 +434,7 @@ def getCorrelation(se, me, name, conf):
 # returns [[iSE, iME], [se, me, cf]] for a list of mt or mult ranges
 # and a list of rebinned [se, me, cf] appended to the firt list for rebin factors
 # [[iSE, iME], [bin 1], [bin 1 rebin], [bin 2], [bin 2 rebin]...]
-def getDifferential(se, me, htype, bins, rebin):
+def getDifferential(se, me, htype, bins, rebin, norm):
     histos = []
     if htype == 2:
         conf = "mult: "
@@ -675,21 +448,21 @@ def getDifferential(se, me, htype, bins, rebin):
 
     mt_histos = getBinRangeHistos(se, me, bins)
     for name, se, me in mt_histos:
-        histos.append(getCorrelation(se, me, name, conf + name))
+        histos.append(getCorrelation(se, me, name, conf + name, norm))
         if rebin:       # append a list of rebinned [se, me, cf] after the original [se, me, cf]
             histos_rebin = []
             for factor in rebin:
                 se_rebin = rebin_hist(se, factor)
                 me_rebin = rebin_hist(me, factor)
                 rebin_conf = " rebin: " + str(factor)
-                histos_rebin.append(getCorrelation(se_rebin, me_rebin, name, conf + name + rebin_conf))
+                histos_rebin.append(getCorrelation(se_rebin, me_rebin, name, conf + name + rebin_conf, norm))
             histos.append(histos_rebin)
     return histos
 
 # returns a list of [[iSE, iME], [se, me, cf]] for rel pair k* input
 # or reweights and returns ([[iSE, iME], [se, me, cf]], [[me_unw, cf_unw]]) for kmult
 # and [[iSE, iME], [se, me, cf]] for kmT
-def getIntegrated(se, me, htype, rebin):
+def getIntegrated(se, me, htype, rebin, norm):
     histos = []
     histos_unw = []
     if htype == 1:      # k* input
@@ -712,17 +485,17 @@ def getIntegrated(se, me, htype, rebin):
         se = hReweight[0]
         me = hReweight[2]   # unweighted me, i.e. normal me projection of the kmT histo
 
-    histos.append(getCorrelation(se, me, "cf", ""))
+    histos.append(getCorrelation(se, me, "cf", "", norm))
     if rebin:               # append rebinned histos to list of histos
         histos_rebin = []
         for factor in rebin:
             se_rebin = rebin_hist(se, factor)
             me_rebin = rebin_hist(me, factor)
             rebin_conf = " rebin: " + str(factor)
-            histos_rebin.append(getCorrelation(se_rebin, me_rebin, "rebin: " + str(factor), rebin_conf))
+            histos_rebin.append(getCorrelation(se_rebin, me_rebin, "rebin: " + str(factor), rebin_conf, norm))
         histos.append(histos_rebin)
     if htype == 2:      # 2nd list with unweighted histos
-        se, me, cf = getCorrelation(se, me_unw, "cf_unw", "unweighted")
+        se, me, cf = getCorrelation(se, me_unw, "cf_unw", "unweighted", norm)
         histos_unw.append([me.Clone("ME unw"), cf.Clone("CF unw")])
         if rebin:           # append rebinned histos to list of histos
             histos_rebin = []
@@ -730,7 +503,7 @@ def getIntegrated(se, me, htype, rebin):
                 se_rebin = rebin_hist(se, factor)
                 me_rebin = rebin_hist(me, factor)
                 rebin_conf = " rebin: " + str(factor)
-                se_rebin, me_rebin, cf_rebin = getCorrelation(se_rebin, me_rebin, "rebin: " + str(factor), rebin_conf)
+                se_rebin, me_rebin, cf_rebin = getCorrelation(se_rebin, me_rebin, "rebin: " + str(factor), rebin_conf, norm)
                 histos_rebin.append([me_rebin.Clone("ME unw"), cf_rebin.Clone("CF unw")])
             histos_unw.append(histos_rebin)
 
@@ -773,3 +546,13 @@ def rebin_hist(input_histo, binning):
     histo = input_histo.Clone()
     histo = histo.Rebin(binning)
     return histo
+
+# generates list with rebin factors
+def bin2list(rebin):
+    rebin_list = []
+    if type(rebin) == int:
+        rebin = [rebin]
+    elif type(rebin) != list:
+        return None
+    rebin_list.extend(rebin)
+    return rebin_list
