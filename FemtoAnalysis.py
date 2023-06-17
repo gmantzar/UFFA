@@ -1,7 +1,7 @@
 import ROOT
 import FemtoDreamReader as FDR
 import CorrelationHandler as CH
-import v2TemplateFit as TF
+import TemplateFit as TF
 import time
 
 def UFFA_pp(fname, fdir, new_file, atype, htype, mc = None, bins = None, rebin = None, dirOut = None):
