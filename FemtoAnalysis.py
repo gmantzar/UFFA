@@ -40,9 +40,13 @@ def UFFA_tf(settings):
 
     fds = FDS.FemtoDreamSaver(settings)
     ofile = fds.getFile()
-    bins = [conf['bins'], conf['rebin']] if conf['rebin'] else conf['bins']
+    if 'rebin' in conf and conf['rebin']:
+        bins = [conf['bins'], conf['rebin']]
+    else:
+        bins = conf['bins']
     TF.TemplateFit(ofile, dca_data, dca_mcplots, conf['tftype'], conf['namelist'], conf['fitrange'], bins, conf['outDir'])
 
+# systematics
 def UFFA_syst(fname, fdir, new_file, atype, htype, mc = None, bins = None, rebin = None, dirOut = None):
     conf = config(dirOut, fname, fdir, new_file, atype, htype, mc, bins, rebin)
     fdr = FDR.FemtoDreamReader(fname, fdir)
@@ -54,22 +58,35 @@ def UFFA_syst(fname, fdir, new_file, atype, htype, mc = None, bins = None, rebin
 
     # systematics
     syst = Systematics(cf)
+    syst_rebin = []
+    if conf['rebin']:
+        for i in range(len(conf['rebin'])):
+            syst_rebin.append(Systematics(cf_rebin[i]))
+
 
     # loop over data variations in file and calculate the cf for each
     # which is then saved in a th2 from which the systematic error is computed and saved in a th2
     file_dir = fdr.get_dir()
     while (fdr.cd(file_dir + "_var" + n)):
         ch_var = cf_handler(fdr, conf)
-        cf_var, cf_var_rebin = ch_var.get_cf()[0]
+        cf_var, cf_var_unw = ch_var.get_cf()
+        cf_var, cf_var_rebin = cf_var
 
         # add variation
         syst.AddVar(cf_var)
+        if conf['rebin']:
+            for i in range(len(conf['rebin'])):
+                syst_rebin[i].AddVar(cf_var_rebin[i])
+                if conf['atype'] = 'dif'
 
         n += 1
         del ch_var
 
     # generate th2 plots for systematics
     syst.GenSyst()
+    if conf['rebin']:
+        for i in range(len(conf['rebin'])):
+            syst_rebin[i].GenSyst()
 
     # save output
     ofile = ROOT.TFile("UFFA_syst_" + conf[1], "recreate")
@@ -160,15 +177,15 @@ class cf_handler():
 
     # retrieves histos from the provided file reader
     def _get_histos(self):
-        if self._htype == 1:        # TH1 kstar
+        if self._htype == 'k':        # TH1 kstar
             self._se, self._me = self._file.get_kstar()
             if self._mc:
                 self._se_mc, self._me_mc = self._file.get_kstar_mc()
-        elif self._htype == 2:      # TH2 k-mult
+        elif self._htype == 'mult':      # TH2 k-mult
             self._se, self._me = self._file.get_kmult()
             if self._mc:
                 self._se_mc, self._me_mc = self._file.get_kmult_mc()
-        elif self._htype == 3:      # TH2 k-mt
+        elif self._htype == 'mt':      # TH2 k-mt
             self._se, self._me = self._file.get_kmt()
             if self._mc:
                 self._se_mc, self._me_mc = self._file.get_kmt_mc()
@@ -188,11 +205,11 @@ class cf_handler():
         histos_mc = []
         histos_unw = []
         histos_unw_mc = []
-        if self._atype == 1:        # integrated analysis
+        if self._atype == 'int':        # integrated analysis
             histos, histos_unw = getIntegrated(self._se, self._me, self._htype, self._rebin, self._norm)
             if self._mc:
                 histos_mc, histos_unw_mc = getIntegrated(self._se_mc, self._me_mc, self._htype, self._rebin, self._norm)
-        elif self._atype == 2:      # differential analysis
+        elif self._atype == 'dif':      # differential analysis
             histos = getDifferential(self._se, self._me, self._htype, self._bins, self._rebin, self._norm)
             if self._mc:
                 histos_mc = getDifferential(self._se_mc, self._me_mc, self._htype, self._bins, self._rebin, self._norm)
@@ -200,30 +217,31 @@ class cf_handler():
         return [histos, histos_unw, histos_mc, histos_unw_mc, self._event, self._tracks, self._tracks_mc]
 
     # returns a list of cf and their rebinned version
-    # [cf, [rebin 1, rebin 2, ...]], same for unweighted if integrated analysis
+    # [[cf, [rebin 1, rebin 2, ...]], [bin2...], ...] same for unweighted if integrated analysis
     def get_cf(self):
         histos = []
         histos_unw = []
         cf_list = []
         cf_list_unw = []
-        if self._atype == 1:        # integrated analysis
+        if self._atype == 'int':        # integrated analysis
             histos, histos_unw = getIntegrated(self._se, self._me, self._htype, self._rebin, self._norm)
-            cf_list_unw.append(histos_unw[0][1])
+            cf_list_unw.append(histos_unw[1])
             cf_list_unw.append([])
-        elif self._atype == 2:      # differential analysis
+        elif self._atype == 'dif':      # differential analysis
             histos = getDifferential(self._se, self._me, self._htype, self._bins, self._rebin, self._norm)
 
-        cf_list.append(histos[1][2])
-        cf_list.append([])
+        cf_list.append([histos[1][2], []])                          # cf, for differential 1st bin
         if self._rebin:
             for n in range(len(self._rebin)):
-                cf = histos[2][n][2]
-                cf.SetName("CF rebin: " + self._rebin[n])
-                cf_list[1].append(cf)
-                if self._atype == 1:
-                    cf_unw = histos_unw[1][n][1]
-                    cf_unw.SetName("CF unw rebin: " + self._rebin[n])
-                    cf_list_unw[1].append(cf_unw)
+                cf_list[0][1].append(histos[1][3][n][2])            # rebinned cf
+                if self._atype == 'int':
+                    cf_list_unw[1].append(histos_unw[2][n][1])      # rebinned unw cf for integrated
+        if self._atype == 'dif':
+            for n in range(len(self._bins)):
+                cf_list.append([histos[n + 2][2], []])
+                if self._rebin:
+                    for m in range(len(self._rebin)):
+                        cf_list[n + 1][1].append(histos[n + 2][3][n][2])    # rebinned cf appended to rebin list
 
         return [cf_list, cf_list_unw]
 
@@ -320,9 +338,9 @@ def config(dic_conf):
         if type(atype) == str:
             atype = atype.lower()
         if atype in int_keys:
-            dic['atype'] = 1
+            dic['atype'] = 'int'
         elif atype in dif_keys:
-            dic['atype'] = 2
+            dic['atype'] = 'dif'
 
     # histogram type
     if 'htype' in dic_conf:
@@ -330,19 +348,19 @@ def config(dic_conf):
         if type(htype) == str:
             htype = htype.lower()
         if htype in k_keys:
-            dic['htype'] = 1
+            dic['htype'] = 'k'
         elif htype in mult_keys:
-            dic['htype'] = 2
+            dic['htype'] = 'mult'
         elif htype in mt_keys:
-            dic['htype'] = 3
+            dic['htype'] = 'mt'
 
     # template fit type
     if 'tftype' in dic_conf:
         tftype = dic_conf['tftype'].lower()
         if tftype == 'dca':
-            dic['tftype'] = 1
+            dic['tftype'] = 'dca'
         elif tftype == 'cpa':
-            dic['tftype'] = 2
+            dic['tftype'] = 'cpa'
 
     # mc data file
     if 'mc' in dic_conf:
@@ -416,6 +434,7 @@ def getPurity(hPt, hPt_mc):
     return ratio
 
 # helper function for the CF
+# output: [se, me, cf]
 def getCorrelation(se, me, name, conf, norm = None):
     ch = CH.CorrelationHandler(name, se, me)
     #ch.normalize()
@@ -432,8 +451,7 @@ def getCorrelation(se, me, name, conf, norm = None):
     return [se, me, cf]
 
 # returns [[iSE, iME], [se, me, cf]] for a list of mt or mult ranges
-# and a list of rebinned [se, me, cf] appended to the firt list for rebin factors
-# [[iSE, iME], [bin 1], [bin 1 rebin], [bin 2], [bin 2 rebin]...]
+# [[iSE, iME], [se, me, cf, [rebin: [...], [...], ...], [bin 2 [rebin]], ...]
 def getDifferential(se, me, htype, bins, rebin, norm):
     histos = []
     if htype == 2:
@@ -447,27 +465,27 @@ def getDifferential(se, me, htype, bins, rebin, norm):
         exit()
 
     mt_histos = getBinRangeHistos(se, me, bins)
-    for name, se, me in mt_histos:
-        histos.append(getCorrelation(se, me, name, conf + name, norm))
-        if rebin:       # append a list of rebinned [se, me, cf] after the original [se, me, cf]
+    for n, name, se, me in enumerate(mt_histos, 1):
+        histos.append([getCorrelation(se, me, name, conf + name, norm)])
+        if rebin:       # append a list of rebinned [se, me, cf] in the original [se, me, cf]
             histos_rebin = []
             for factor in rebin:
                 se_rebin = rebin_hist(se, factor)
                 me_rebin = rebin_hist(me, factor)
                 rebin_conf = " rebin: " + str(factor)
                 histos_rebin.append(getCorrelation(se_rebin, me_rebin, name, conf + name + rebin_conf, norm))
-            histos.append(histos_rebin)
+            histos[n].append(histos_rebin)
     return histos
 
 # returns a list of [[iSE, iME], [se, me, cf]] for rel pair k* input
-# or reweights and returns ([[iSE, iME], [se, me, cf]], [[me_unw, cf_unw]]) for kmult
-# and [[iSE, iME], [se, me, cf]] for kmT
+# or reweights and returns ([[iSE, iME], [se, me, cf, [rebin]]], [me_unw, cf_unw, [rebin]]) for kmult
+# and [[iSE, iME], [se, me, cf, [rebin]]] for kmT
 def getIntegrated(se, me, htype, rebin, norm):
     histos = []
     histos_unw = []
-    if htype == 1:      # k* input
+    if htype == 'k':      # k* input
         histos.append([se.Clone("SE kstar"), me.Clone("ME kstar")])
-    elif htype == 2:    # kmult input
+    elif htype == 'mult':    # kmult input
         histos.append([se.Clone("SE kmult"), me.Clone("ME kmult")])
         hReweight = reweight(se, me)
         se          = hReweight[0]
@@ -479,7 +497,7 @@ def getIntegrated(se, me, htype, rebin, norm):
         histos[0].append(se_mult.Clone("SE mult"))
         histos[0].append(me_mult.Clone("ME mult"))
         histos[0].append(me_mult_unw.Clone("ME mult unw"))
-    elif htype == 3:    # kmT input
+    elif htype == 'mt':    # kmT input
         histos.append([se.Clone("SE kmT"), me.Clone("ME kmT")])
         hReweight = reweight(se, me)
         se = hReweight[0]
@@ -493,10 +511,12 @@ def getIntegrated(se, me, htype, rebin, norm):
             me_rebin = rebin_hist(me, factor)
             rebin_conf = " rebin: " + str(factor)
             histos_rebin.append(getCorrelation(se_rebin, me_rebin, "rebin: " + str(factor), rebin_conf, norm))
-        histos.append(histos_rebin)
-    if htype == 2:      # 2nd list with unweighted histos
+        histos[1].append(histos_rebin)
+    if htype == 'mult':      # 2nd list with unweighted histos
         se, me, cf = getCorrelation(se, me_unw, "cf_unw", "unweighted", norm)
-        histos_unw.append([me.Clone("ME unw"), cf.Clone("CF unw")])
+        histos_unw.append(me.Clone("ME unw"))
+        histos_unw.append(cf.Clone("CF unw"))
+        histos_unw.append([])
         if rebin:           # append rebinned histos to list of histos
             histos_rebin = []
             for factor in rebin:
@@ -504,8 +524,7 @@ def getIntegrated(se, me, htype, rebin, norm):
                 me_rebin = rebin_hist(me, factor)
                 rebin_conf = " rebin: " + str(factor)
                 se_rebin, me_rebin, cf_rebin = getCorrelation(se_rebin, me_rebin, "rebin: " + str(factor), rebin_conf, norm)
-                histos_rebin.append([me_rebin.Clone("ME unw"), cf_rebin.Clone("CF unw")])
-            histos_unw.append(histos_rebin)
+                histos_unw[2].append([me_rebin.Clone("ME unw"), cf_rebin.Clone("CF unw")])
 
     return histos, histos_unw
 
@@ -556,3 +575,4 @@ def bin2list(rebin):
         return None
     rebin_list.extend(rebin)
     return rebin_list
+

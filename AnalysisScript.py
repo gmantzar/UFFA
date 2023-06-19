@@ -36,12 +36,14 @@ opath = "root_output/"
 templates = "AnalysisResults_LHC21k6_pp_Templates.root"
 filename = "AnalysisResults_LHC22q_pass3.root"
 
-dca_names = ['prim', 'lam', 'sig', 'mat', 'fake']
+dca_names = ['prim', 'lam', 'sig', 'fake']
 
 f1 = FDR.FemtoDreamReader(templates, "_base-tempFit")
-mc_plots0 = f1.get_dca_mc()
-#mc_plots0.append(f1.get_histo("Tracks_one_MC/hDCAxy_Daughter"))
-mc_plots0.append(f1.get_histo("Tracks_one_MC/hDCAxy_Fake"))
+mc_plots0 = []
+mc_plots0.append(f1.getHisto("Tracks_one_MC/hDCAxy_Primary"))
+mc_plots0.append(f1.getHisto("Tracks_one_MC/hDCAxy_DaughterLambda"))
+mc_plots0.append(f1.getHisto("Tracks_one_MC/hDCAxy_DaughterSigmaplus"))
+mc_plots0.append(f1.getHisto("Tracks_one_MC/hDCAxy_Fake"))
 
 settings = {
         "function":     'tf',
@@ -57,10 +59,11 @@ settings = {
         "rename":       None,
         "atype":        'int',
         "htype":        'kmult',
-        "bins":         [0.5, 1.0, 2.0, 4.0],
+        "bins":         [0.500, 0.678, 0.856, 1.033, 1.211, 1.388, 1.567, 1.743, 1.921, 2.099, 2.453, 2.986, 4.051],
         #"bins":         [0, 20, 40, 60],
         #"bins":         20,
-        "rebin":        [1, 2, 4],
+        #"rebin":        None,
+        "rebin":        [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 4],
         "tftype":       'dca',
         "data":         None,
         "templates":    mc_plots0,

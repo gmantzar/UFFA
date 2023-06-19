@@ -77,3 +77,4 @@ class CorrelationHandler:
     # Correlation function
     def get_cf(self):
         return self.__cf
+

@@ -217,3 +217,4 @@ class FileReader:
             FileReader.DEBUG = option
             return
         FileReader.DEBUG = not FileReader.DEBUG
+

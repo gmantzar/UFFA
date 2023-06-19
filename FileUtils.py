@@ -30,3 +30,4 @@ def file_exists(file):
             digit += 1
         file = name + '-' + str(digit) + '.' + ext
     return file
+

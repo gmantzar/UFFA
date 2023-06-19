@@ -73,15 +73,15 @@ def TemplateFit(fname, dca_data, dca_mcplots, dcacpa, dca_mcplots_names, fit_ran
     dca_ent = len(dca_mcplots)
     if type(dcacpa) == str:
         if dcacpa.lower() == "dca":
-            dcacpa = 1
+            dcacpa = 'dca'
         elif dcacpa.lower() == "cpa":
-            dcacpa = 2
+            dcacpa = 'cpa'
         else:
             print("Error in plot type: \"dca\" or \"cpa\"")
 
     # dca cut
     CPAcut = 0.99
-    if dcacpa == 1:
+    if dcacpa == 'dca':
         fitmax = fit_range
         fitmin = -fitmax
     else:
@@ -116,7 +116,6 @@ def TemplateFit(fname, dca_data, dca_mcplots, dcacpa, dca_mcplots_names, fit_ran
         canvas = ROOT.TCanvas("canvas_" + str(n + 1), "canvas_" + str(n + 1))
         canvas.SetCanvasSize(1024, 768)
         canvas.cd()
-        ROOT.gStyle.SetOptStat(0)
         ROOT.gPad.SetLogy()
 
         # data
@@ -297,3 +296,4 @@ def TemplateFit(fname, dca_data, dca_mcplots, dcacpa, dca_mcplots_names, fit_ran
     c2.Close()
     fractions.Close()
     del c2, fractions, htot, ftot, adj
+
