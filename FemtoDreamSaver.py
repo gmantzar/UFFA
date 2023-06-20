@@ -30,22 +30,26 @@ class FemtoDreamSaver(FS.FileSaver):
         else:
             self._save_cf()
 
-    # function that saves all the histos in the correct file format
-    # saver for UFFA_cf()
-    def _save_cf(self):
-        # create the output file
+    # create the output file
+    def _create_output(self, prepend):
         if self._nfile == 'new':
-            new_name = FU.file_exists(self._opath + "UFFA_" + self._oname)
+            new_name = FU.file_exists(self._opath + prepend + self._oname)
             FemtoDreamSaver.last_edit = new_name
         elif self._nfile == 'recreate':
-            new_name = self._opath + "UFFA_" + self._oname
+            new_name = self._opath + prepend + self._oname
             FemtoDreamSaver.last_edit = None
         elif self._nfile == 'update':
             if FemtoDreamSaver.last_edit:
                 new_name = FemtoDreamSaver.last_edit
             else:
-                new_name = self._opath + "UFFA_" + self._oname
+                new_name = self._opath + prepend + self._oname
         self.touch(new_name, self._nfile)
+
+    # function that saves all the histos in the correct file format
+    # saver for UFFA_cf()
+    def _save_cf(self):
+        # create the output file
+        self._create_output("UFFA_")
 
         # histos setup
         hist_std = self._histos[0]
@@ -74,87 +78,76 @@ class FemtoDreamSaver(FS.FileSaver):
         dir_root.cd()
 
         if self._atype == 'int':                # integrated
-            FU.write(hist_in)                           # iSE, iME
-            FU.write(hist_smc[0][:-1])                  # se, me, cf
+            self.write(hist_in)                           # iSE, iME
+            self.write(hist_smc[0][:-1])                  # se, me, cf
             if self._htype == 'mult':
-                FU.write(hist_unw[:-1])                 # me unw, cf unw
+                self.write(hist_unw[:-1])                 # me unw, cf unw
             if self._rebin:                         # all rebinned se, me, cf, me unw, cf unw, in individual directories
                 for n in range(len(self._rebin)):
                     dir_rebin = dir_root.mkdir("rebin: " + str(self._rebin[n]))
                     dir_rebin.cd()
-                    FU.write(hist_smc[0][3][n])         # [[se, me, cf, [rebins]]]
+                    self.write(hist_smc[0][3][n])         # [[se, me, cf, [rebins]]]
                     if self._htype == 'mult':
-                        FU.write(hist_unw[2][n])        # [me unw, cf unw, [rebins]]
+                        self.write(hist_unw[2][n])        # [me unw, cf unw, [rebins]]
                     dir_root.cd()
                     del dir_rebin
-            FU.writeInDir(dir_root, "Event", hist_event)
-            FU.writeInDir(dir_root, "Tracks_one", hist_track)
+            self.writeInDir(dir_root, "Event", hist_event)
+            self.writeInDir(dir_root, "Tracks_one", hist_track)
             if self._mc:
                 dir_mc = dir_root.mkdir("mc")
                 dir_mc.cd()
-                FU.write(hist_in_mc)                    # [iSE, iME]
-                FU.write(hist_smc_mc[0][:-1])           # [[se, me, cf, [rebins]]
+                self.write(hist_in_mc)                    # [iSE, iME]
+                self.write(hist_smc_mc[0][:-1])           # [[se, me, cf, [rebins]]
                 if self._htype == 'mult':
-                    FU.write(hist_unw_mc[:-1])          # [me unw, cf unw, [rebins]]
+                    self.write(hist_unw_mc[:-1])          # [me unw, cf unw, [rebins]]
                 if self._rebin:                     # rebin directories in main directory
                     for n in range(len(self._rebin)):
                         dir_rebin = dir_mc.mkdir("rebin: " + str(self._rebin[n]))
                         dir_rebin.cd()
-                        FU.write(hist_smc_mc[0][3][n])
+                        self.write(hist_smc_mc[0][3][n])
                         if self._htype == 'mult':
-                            FU.write(hist_unw_mc[2][n])
+                            self.write(hist_unw_mc[2][n])
                         dir_mc.cd()
                         del dir_rebin
-                FU.writeInDir(dir_root, "Tracks_one_MC", hist_track_mc)
+                self.writeInDir(dir_root, "Tracks_one_MC", hist_track_mc)
                 hist_pur.Write()
         elif self._atype == 'dif':              # differential
-            FU.write(hist_in)                           # [iSE, iME]
+            self.write(hist_in)                           # [iSE, iME]
             for n in range(len(self._bins) - 1):        # list: [1, 2, 3, 4] -> ranges: [1-2, 2-3, 3-4]
                 dir_bin = dir_root.mkdir("bin: " + str(n + 1))
                 dir_bin.cd()
                 if self._rebin:                     # rebin directories inside each mt/mult bin directory
-                    FU.write(hist_smc[n][:-1])          # [[se, me, cf, [rebins]], ...]
+                    self.write(hist_smc[n][:-1])          # [[se, me, cf, [rebins]], ...]
                     for m in range(len(self._rebin)):
                         dir_rebin = dir_bin.mkdir("rebin: " + str(self._rebin[m]))
                         dir_rebin.cd()
-                        FU.write(hist_smc[n][3][m])     # [[se, me, cf, [rebins]], ...]
+                        self.write(hist_smc[n][3][m])     # [[se, me, cf, [rebins]], ...]
                         dir_bin.cd()
                         del dir_rebin
                 dir_root.cd()
                 del dir_bin
-            FU.writeInDir(dir_root, "Event", hist_event)
-            FU.writeInDir(dir_root, "Tracks_one", hist_track)
+            self.writeInDir(dir_root, "Event", hist_event)
+            self.writeInDir(dir_root, "Tracks_one", hist_track)
             if self._mc:                            # monte carlo directory
                 dir_mc = dir_root.mkdir("mc")
                 dir_mc.cd()
-                FU.write(hist_in_mc)                    # [iSE, iME]
+                self.write(hist_in_mc)                    # [iSE, iME]
                 for n in range(len(self._bins) - 1):    # list: [1, 2, 3, 4] -> ranges: [1-2, 2-3, 3-4]
                     dir_bin = dir_mc.mkdir("bin: " + str(n + 1))
                     dir_bin.cd()
                     if self._rebin:                 # rebin directories inside each mt/mult bin directory
-                        FU.write(hist_smc_mc[n][:-1])
+                        self.write(hist_smc_mc[n][:-1])
                         for m in range(len(self._rebin)):
                             dir_rebin = dir_bin.mkdir("rebin: " + str(self._rebin[m]))
                             dir_rebin.cd()
-                            FU.write(hist_smc_mc[n][3][m])
+                            self.write(hist_smc_mc[n][3][m])
                             dir_bin.cd()
                             del dir_rebin
                     del dir_bin
                 del dir_mc
-                FU.writeInDir(dir_root, "Tracks_one_MC", hist_track_mc)
+                self.writeInDir(dir_root, "Tracks_one_MC", hist_track_mc)
 
     # saver for UFFA_tf()
     def _save_tf(self):
-        if self._nfile == 'new':
-            new_name = FU.file_exists(self._opath + "TemplateFit_" + self._oname)
-            FemtoDreamSaver.last_edit = new_name
-        elif self._nfile == 'recreate':
-            new_name = self._opath + "TemplateFit_" + self._oname
-            FemtoDreamSaver.last_edit = None
-        elif self._nfile == 'update':
-            if FemtoDreamSaver.last_edit:
-                new_name = FemtoDreamSaver.last_edit
-            else:
-                new_name = self._opath + "TemplateFit_" + self._oname
-        self.touch(new_name, self._nfile)
-
+        # create the output file
+        self._create_output("TemplateFit_")
