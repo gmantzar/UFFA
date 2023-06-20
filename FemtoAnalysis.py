@@ -53,64 +53,57 @@ def UFFA_syst(fname, fdir, new_file, atype, htype, mc = None, bins = None, rebin
 
     # default cf
     ch = cf_handler(fdr, conf)
-    cf, cf_unw = ch.get_cf()
-    cf, cf_rebin = cf
+    cf, cf_unw = ch.get_cf()                                # [[cf, [rebins]], [bin2...], ...], [[cf unw, [rebins]], [bin2...], ...]
 
-    # systematics
-    syst = Systematics(cf)
-    syst_rebin = []
-    if conf['rebin']:
-        for i in range(len(conf['rebin'])):
-            syst_rebin.append(Systematics(cf_rebin[i]))
-
+    len_rebin = len(conf['rebin'])
+    if conf['atype'] == 'int':                              # integrated
+        ck, ck_rebin = cf[0]
+        syst = [[Systematics(ck), []]]                          # [[syst cf, [rebins]]]
+        if conf['rebin']:
+            for i in range(len_rebin):
+                syst[0][1].append(Systematics(ck_rebin[i]))
+    elif conf['atype'] == 'dif':                            # differential
+        syst = []
+        for n, [ck, ck_rebin] in enumerate(cf):
+            syst.append([Systematics(ck), []])                  # [[syst cf, [rebins]], [bin2...], ...]
+            if conf['rebin']:
+                for i in range(len_rebin):
+                    syst[n][1].append(Systematics(ck_rebin[i]))
 
     # loop over data variations in file and calculate the cf for each
     # which is then saved in a th2 from which the systematic error is computed and saved in a th2
-    file_dir = fdr.get_dir()
+    file_dir = fdr.get_dir(); n = 1
     while (fdr.cd(file_dir + "_var" + n)):
         ch_var = cf_handler(fdr, conf)
         cf_var, cf_var_unw = ch_var.get_cf()
-        cf_var, cf_var_rebin = cf_var
-
-        # add variation
-        syst.AddVar(cf_var)
-        if conf['rebin']:
-            for i in range(len(conf['rebin'])):
-                syst_rebin[i].AddVar(cf_var_rebin[i])
-                if conf['atype'] = 'dif'
-
+        for n, [ck_var, ck_var_rebin] in enumerate(cf_var):
+            syst[n][0].addVar(ck_var)
+            if conf['rebin']:
+                for i in range(len_rebin):
+                    syst[n][1][i].addVar(ck_var_rebin[i])
         n += 1
         del ch_var
 
     # generate th2 plots for systematics
-    syst.GenSyst()
-    if conf['rebin']:
-        for i in range(len(conf['rebin'])):
-            syst_rebin[i].GenSyst()
+    for n in range(len(syst)):
+        syst[n][0].GenSyst()
+        if conf['rebin']:
+            for i in range(len_rebin):
+                syst[n][1][i].GetSyst()
 
-    # save output
-    ofile = ROOT.TFile("UFFA_syst_" + conf[1], "recreate")
-    root = ofile.mkdir(conf[2])
-    root.cd()
+    syst_plots = []                                         # [[[cf, diff, syst, dev], [rebins]], [bin2...], ...]
+    for n in range(len(syst)):
+        syst_plots.append([syst[n][0].GetAll(), []])
+        if conf['rebin']:
+            for i in range(len_rebin):
+                syst_plots[n][1].append(syst[n][1][i].GetAll())
 
-    cf.Write()
-    h2cf_var.Write()
-    h2cf_dif.Write()
-    cf_sys.Write()
-    cf_dev.Write()
-
-    for i in range(len(rebin)):
-        new_dir = root.mkdir("rebin: " + rebin[i])
-        new_dir.cd()
-
-        cf_rebin[i].Write()
-        h2cf_var_rebin[i].Write()
-        h2cf_dif_rebin[i].Write()
-        cf_sys_rebin[i].Write()
-        cf_dev_rebin[i].Write()
+    histos = (syst, syst_plots)
+    fds = FDS.FemtoDreamSaver(conf, histos)
 
 # class that returns the systematics of a cf
 # add variations with AddVar(var) before calling GenSyst()
+# GetAll() returns [th2 cf, th2 difference, th1 systematics, th1 std dev]
 class Systematics():
     ybins = 512
     def __init__(self, cf):
@@ -465,7 +458,7 @@ def getDifferential(se, me, htype, bins, rebin, norm):
         exit()
 
     mt_histos = getBinRangeHistos(se, me, bins)
-    for n, name, se, me in enumerate(mt_histos, 1):
+    for n, [name, se, me] in enumerate(mt_histos, 1):
         histos.append([getCorrelation(se, me, name, conf + name, norm)])
         if rebin:       # append a list of rebinned [se, me, cf] in the original [se, me, cf]
             histos_rebin = []

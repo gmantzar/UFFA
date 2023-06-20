@@ -27,6 +27,8 @@ class FemtoDreamSaver(FS.FileSaver):
             self._save_cf()
         elif self._func == 'tf':
             self._save_tf()
+        elif self._func == 'syst':
+            self._save_syst()
         else:
             self._save_cf()
 
@@ -151,3 +153,47 @@ class FemtoDreamSaver(FS.FileSaver):
     def _save_tf(self):
         # create the output file
         self._create_output("TemplateFit_")
+
+    # saver for UFFA_cf()
+    def _save_syst(self):
+        # create the output file
+        self._create_output("UFFA_syst_")
+
+        # [[syst cf, [rebins]], [bin2...], ...], [[[cf, diff, syst, dev], [rebins]], [bin2...], ...]
+        syst, syst_plots = self._histos
+
+        default = "femto-dream-pair-task-track-track"
+        if self._idir == default:
+            dir_root = self._file.mkdir(default + "_std")
+        else:
+            dir_root = self._file.mkdir(self._idir)
+        dir_root.cd()
+
+        if self._atype == 'int':
+            syst[0][0].Write()
+            self.write(syst_plots[0][0])
+            if self._rebin:
+                for i, factor in enumerate(self._rebin):
+                    dir_rebin = dir_root.mkdir("rebin: " + str(factor))
+                    dir_rebin.cd()
+                    syst[0][1][i].Write()
+                    self.write(syst_plots[0][1][i])
+                    dir_root.cd()
+                    del dir_rebin
+        elif self._atype == 'dif':
+            for n in range(1, len(syst) + 1):
+                dir_bin = dir_root.mkdir("bin: " + str(n))
+                dir_bin.cd()
+                syst[n][0].Write()
+                self.write(syst[n][0])
+                if self._rebin:
+                    for i, factor in enumerate(self._rebin):
+                        dir_rebin = dir_bin.mkdir("rebin: " + str(factor))
+                        dir_rebin.cd()
+                        syst[n][1][i].Write()
+                        self.write(syst_plots[0][1][i])
+                        dir_bin.cd()
+                        del dir_rebin
+                dir_root.cd()
+                del dir_bin
+
