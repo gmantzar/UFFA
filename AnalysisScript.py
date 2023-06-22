@@ -30,7 +30,7 @@ import FemtoDreamReader as FDR
 #
 
 
-ipath = ""
+ipath = "root_input/"
 opath = ""
 
 filename = "AnalysisResults_LHC22q_pass3.root"
@@ -55,10 +55,11 @@ settings_cf = {
         "mc":           None,
         "mcTDir":       "",
         "rename":       None,
-        "atype":        'int',
+        "atype":        'diff',
         "htype":        'kmult',
         "bins":         [0, 20, 40, 60],
-        "rebin":        None,
+        #"bins":         [0.5, 1.5, 3, 4],
+        "rebin":        [2, 3, 4],
         "normalize":    [0.2, 0.3],
         "debug":        True
     }

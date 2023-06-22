@@ -79,18 +79,18 @@ class FemtoDreamSaver(FS.FileSaver):
             dir_root = self._file.mkdir(self._idir)
         dir_root.cd()
 
-        if self._atype == 'int':                # integrated
-            self.write(hist_in)                           # iSE, iME
-            self.write(hist_smc[0][:-1])                  # se, me, cf
+        if self._atype == 'int':                        # integrated
+            self.write(hist_in)                             # iSE, iME
+            self.write(hist_smc[0][:3])                     # se, me, cf
             if self._htype == 'mult':
-                self.write(hist_unw[:-1])                 # me unw, cf unw
-            if self._rebin:                         # all rebinned se, me, cf, me unw, cf unw, in individual directories
+                self.write(hist_unw[:2])                    # me unw, cf unw
+            if self._rebin:                                 # all rebinned se, me, cf, me unw, cf unw, in individual directories
                 for n in range(len(self._rebin)):
                     dir_rebin = dir_root.mkdir("rebin: " + str(self._rebin[n]))
                     dir_rebin.cd()
-                    self.write(hist_smc[0][3][n])         # [[se, me, cf, [rebins]]]
+                    self.write(hist_smc[0][3][n])           # [[se, me, cf, [rebins]]]
                     if self._htype == 'mult':
-                        self.write(hist_unw[2][n])        # [me unw, cf unw, [rebins]]
+                        self.write(hist_unw[2][n])          # [me unw, cf unw, [rebins]]
                     dir_root.cd()
                     del dir_rebin
             self.writeInDir(dir_root, "Event", hist_event)
@@ -98,11 +98,11 @@ class FemtoDreamSaver(FS.FileSaver):
             if self._mc:
                 dir_mc = dir_root.mkdir("mc")
                 dir_mc.cd()
-                self.write(hist_in_mc)                    # [iSE, iME]
-                self.write(hist_smc_mc[0][:-1])           # [[se, me, cf, [rebins]]
+                self.write(hist_in_mc)                      # [iSE, iME]
+                self.write(hist_smc_mc[0][:3])              # [[se, me, cf, [rebins]]
                 if self._htype == 'mult':
-                    self.write(hist_unw_mc[:-1])          # [me unw, cf unw, [rebins]]
-                if self._rebin:                     # rebin directories in main directory
+                    self.write(hist_unw_mc[:2])             # [me unw, cf unw, [rebins]]
+                if self._rebin:                             # rebin directories in main directory
                     for n in range(len(self._rebin)):
                         dir_rebin = dir_mc.mkdir("rebin: " + str(self._rebin[n]))
                         dir_rebin.cd()
@@ -113,17 +113,17 @@ class FemtoDreamSaver(FS.FileSaver):
                         del dir_rebin
                 self.writeInDir(dir_root, "Tracks_one_MC", hist_track_mc)
                 hist_pur.Write()
-        elif self._atype == 'dif':              # differential
-            self.write(hist_in)                           # [iSE, iME]
-            for n in range(len(self._bins) - 1):        # list: [1, 2, 3, 4] -> ranges: [1-2, 2-3, 3-4]
+        elif self._atype == 'dif':                      # differential
+            self.write(hist_in)                             # [iSE, iME]
+            for n in range(len(self._bins) - 1):            # list: [1, 2, 3, 4] -> ranges: [1-2, 2-3, 3-4]
                 dir_bin = dir_root.mkdir("bin: " + str(n + 1))
                 dir_bin.cd()
-                if self._rebin:                     # rebin directories inside each mt/mult bin directory
-                    self.write(hist_smc[n][:-1])          # [[se, me, cf, [rebins]], ...]
+                if self._rebin:                             # rebin directories inside each mt/mult bin directory
+                    self.write(hist_smc[n][:3])             # [[se, me, cf, [rebins]], ...]
                     for m in range(len(self._rebin)):
                         dir_rebin = dir_bin.mkdir("rebin: " + str(self._rebin[m]))
                         dir_rebin.cd()
-                        self.write(hist_smc[n][3][m])     # [[se, me, cf, [rebins]], ...]
+                        self.write(hist_smc[n][3][m])       # [[se, me, cf, [rebins]], ...]
                         dir_bin.cd()
                         del dir_rebin
                 dir_root.cd()
@@ -133,12 +133,12 @@ class FemtoDreamSaver(FS.FileSaver):
             if self._mc:                            # monte carlo directory
                 dir_mc = dir_root.mkdir("mc")
                 dir_mc.cd()
-                self.write(hist_in_mc)                    # [iSE, iME]
-                for n in range(len(self._bins) - 1):    # list: [1, 2, 3, 4] -> ranges: [1-2, 2-3, 3-4]
+                self.write(hist_in_mc)                      # [iSE, iME]
+                for n in range(len(self._bins) - 1):        # list: [1, 2, 3, 4] -> ranges: [1-2, 2-3, 3-4]
                     dir_bin = dir_mc.mkdir("bin: " + str(n + 1))
                     dir_bin.cd()
-                    if self._rebin:                 # rebin directories inside each mt/mult bin directory
-                        self.write(hist_smc_mc[n][:-1])
+                    if self._rebin:                         # rebin directories inside each mt/mult bin directory
+                        self.write(hist_smc_mc[n][:3])
                         for m in range(len(self._rebin)):
                             dir_rebin = dir_bin.mkdir("rebin: " + str(self._rebin[m]))
                             dir_rebin.cd()

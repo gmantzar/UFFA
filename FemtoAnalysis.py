@@ -11,6 +11,8 @@ def UFFA(settings):
             UFFA_cf(settings)
         case 'tf':
             UFFA_tf(settings)
+        case 'syst':
+            UFFA_syst(settings)
 
 # correlation function
 def UFFA_cf(settings):
@@ -447,10 +449,10 @@ def getCorrelation(se, me, name, conf, norm = None):
 # [[iSE, iME], [se, me, cf, [rebin: [...], [...], ...], [bin 2 [rebin]], ...]
 def getDifferential(se, me, htype, bins, rebin, norm):
     histos = []
-    if htype == 2:
+    if htype == 'mult':
         conf = "mult: "
         histos.append([se.Clone("SE kmult"), me.Clone("ME kmult")])
-    elif htype == 3:
+    elif htype == 'mt':
         conf = "mt: "
         histos.append([se.Clone("SE kmT"), me.Clone("ME kmT")])
     else:
@@ -459,15 +461,14 @@ def getDifferential(se, me, htype, bins, rebin, norm):
 
     mt_histos = getBinRangeHistos(se, me, bins)
     for n, [name, se, me] in enumerate(mt_histos, 1):
-        histos.append([getCorrelation(se, me, name, conf + name, norm)])
+        histos.append(getCorrelation(se, me, name, conf + name, norm))
+        histos[n].append([])
         if rebin:       # append a list of rebinned [se, me, cf] in the original [se, me, cf]
-            histos_rebin = []
             for factor in rebin:
                 se_rebin = rebin_hist(se, factor)
                 me_rebin = rebin_hist(me, factor)
                 rebin_conf = " rebin: " + str(factor)
-                histos_rebin.append(getCorrelation(se_rebin, me_rebin, name, conf + name + rebin_conf, norm))
-            histos[n].append(histos_rebin)
+                histos[n][3].append(getCorrelation(se_rebin, me_rebin, name, conf + name + rebin_conf, norm))
     return histos
 
 # returns a list of [[iSE, iME], [se, me, cf]] for rel pair k* input
