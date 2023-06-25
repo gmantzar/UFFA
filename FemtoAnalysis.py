@@ -525,32 +525,31 @@ def getIntegrated(se, me, htype, rebin, norm):
 # projects and reweights se and me from kmult histos
 # returns [se, me, me unweighted, se mult, me mult, me mult unweighted]
 def reweight(iSE, iME):
-    se_int = iSE.Integral()
-    me_int = iME.Integral()
+    se_k = iSE.ProjectionX("se_k")
+    me_k = iSE.ProjectionX("me_k")
+    se_int = se_k.Integral()
+    me_int = me_k.Integral()
 
-    se_k = iSE.ProjectionX("se_k", 1, iSE.GetNbinsY())
-    me_k = iSE.ProjectionX("me_k", 1, iME.GetNbinsY())
-    me_k.Reset()
+    se_mult = iSE.ProjectionY("se_mult")
+    me_mult = iME.ProjectionY("me_mult")
 
-    se_mult = iSE.ProjectionY("se_mult", 1, iSE.GetNbinsX())
-    me_mult = iME.ProjectionY("me_mult", 1, iME.GetNbinsX())
-    me_mult.Reset()
+    me_k_unw = iME.ProjectionX("me_k_unw")
+    me_mult_unw = iME.ProjectionY("me_mult_unw")
 
-    me_k_unw = iME.ProjectionX("me_k_unw", 1, iME.GetNbinsY())
-    me_mult_unw = iME.ProjectionY("me_mult_unw", 1, iME.GetNbinsX())
+    me_k.Reset("ICESM")
+    me_mult.Reset("ICESM")
 
     for n in range(1, iSE.GetNbinsY()):
         se_n = iSE.ProjectionX("se_bin", n, n)
         me_n = iME.ProjectionX("me_bin", n, n)
-        #se_n.Sumw2()
-        #me_n.Sumw2()
+
         se_ratio = se_n.Integral() / se_int
         me_ratio = me_n.Integral() / me_int
 
         if me_ratio > 0. and se_ratio > 0.:
             me_n.Scale(se_ratio / me_ratio)
             me_mult.SetBinContent(n, me_n.Integral())
-            me_k.Add(me_n, 1)
+            me_k.Add(me_n)
 
     return [se_k, me_k, me_k_unw, se_mult, me_mult, me_mult_unw]
 
