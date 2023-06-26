@@ -155,12 +155,14 @@ class cf_handler():
     def __init__(self, FileReader, conf):
         self._file  = FileReader
         self._pair  = conf['pair']
-        self._atype = conf['atype']         # analysis type
-        self._htype = conf['htype']         # histo type
-        self._mc    = conf['mc']            # bool monte carlo data
-        self._bins  = conf['bins']          # bin range for differential
-        self._rebin = conf['rebin']         # rebin factors for all se, me, cf plots
-        self._norm  = conf['normalize']     # normalization range
+        self._atype = conf['atype']             # analysis type
+        self._htype = conf['htype']             # histo type
+        self._mc    = conf['mc']                # bool monte carlo data
+        self._bins  = conf['bins']              # bin range for differential
+        self._diff3d = conf['diff3d']           # which axis to split first in a 3D analysis
+        self._binsdiff3d = conf['binsdiff3d']   # bin range for the first differential split in case of a 3D analysis
+        self._rebin = conf['rebin']             # rebin factors for all se, me, cf plots
+        self._norm  = conf['normalize']         # normalization range
         self._se = None
         self._me = None
         self._se_mc = None
@@ -184,6 +186,11 @@ class cf_handler():
             self._se, self._me = self._file.get_kmt()
             if self._mc:
                 self._se_mc, self._me_mc = self._file.get_kmt_mc()
+        elif self._htype == 'mtmult':
+            self._se, self._me = self._file.get_kmtmult()
+            if self._mc:
+                self._se_mc, self._me_mc = self._file.get_kmtmult_mc()
+                
         try:
             self._event = self._file.get_event()        # event histos
             self._tracks = self._file.get_tracks()      # track histos
@@ -205,9 +212,13 @@ class cf_handler():
             if self._mc:
                 histos_mc, histos_unw_mc = getIntegrated(self._se_mc, self._me_mc, self._htype, self._rebin, self._norm)
         elif self._atype == 'dif':      # differential analysis
-            histos = getDifferential(self._se, self._me, self._htype, self._bins, self._rebin, self._norm)
-            if self._mc:
-                histos_mc = getDifferential(self._se_mc, self._me_mc, self._htype, self._bins, self._rebin, self._norm)
+            
+            if self._htype == 'mtmult': # 3D differantial analysis
+                histos = getDifferential3D(self._se, self._me, self._diff3d, self._binsdiff3d, self._htype, self._bins, self._rebin, self._norm)
+            else:
+                histos = getDifferential(self._se, self._me, self._htype, self._bins, self._rebin, self._norm)
+                if self._mc:
+                    histos_mc = getDifferential(self._se_mc, self._me_mc, self._htype, self._bins, self._rebin, self._norm)
 
         return [histos, histos_unw, histos_mc, histos_unw_mc, self._event, self._tracks, self._tracks_mc]
 
@@ -256,6 +267,8 @@ def config(dic_conf):
             "outDir":       "",
             "rename":       None,
             "bins":         None,
+            "diff3d":       "",
+            "binsdiff3d":   None,
             "rebin":        None,
             "atype":        None,
             "htype":        None,
@@ -268,11 +281,12 @@ def config(dic_conf):
             "debug":        False
         }
 
-    k_keys    = ['k', 'kstar', '1']
-    mult_keys = ['mult', 'kmult', '2']
-    mt_keys   = ['mt', 'kmt', '3']
+    k_keys      = ['k', 'kstar', '1']
+    mult_keys   = ['mult', 'kmult', '2']
+    mt_keys     = ['mt', 'kmt', '3']
+    mtmult_keys = ['mtmult','kmtmult', '4']
     int_keys  = ['int', 'integrated', '1']
-    dif_keys  = ['diff', 'differential', '2']
+    dif_keys  = ['diff', 'dif', 'differential', '2']
 
     # function to be used
     if 'function' in dic_conf:
@@ -348,6 +362,8 @@ def config(dic_conf):
             dic['htype'] = 'mult'
         elif htype in mt_keys:
             dic['htype'] = 'mt'
+        elif htype in mtmult_keys:
+            dic['htype'] = 'mtmult'
 
     # template fit type
     if 'tftype' in dic_conf:
@@ -368,6 +384,21 @@ def config(dic_conf):
     # bin ranges
     if 'bins' in dic_conf:
         dic['bins'] = dic_conf['bins']
+    
+    # which axis to be used for the first split in a 3D analysis
+    if 'diff3d' in dic_conf:
+        diff3d = dic_conf['diff3d']
+        if type(diff3d) ==str:
+            diff3d = diff3d.lower()
+        if diff3d in mult_keys:
+            dic['diff3d'] = 'mult'
+        elif diff3d in mt_keys:
+            dic['diff3d'] = 'mt'
+    
+    # binning of the first differential split in case of a 3D analysis;
+    # if used, 'bins' will be used for the binning of the second split
+    if 'binsdiff3d' in dic_conf:
+        dic['binsdiff3d'] = dic_conf['binsdiff3d']
 
     # rebin factor/s
     if 'rebin' in dic_conf:
@@ -398,6 +429,40 @@ def config(dic_conf):
         dic['debug'] = bool(dic_conf['debug'])
 
     return dic
+
+# splits th3 in section based on provided bins
+def getBinRangeHistos3D(iSE, iME, diff1, binsdiff1):
+    if diff1 == 'mt':
+        diffAxisSE = iSE.GetYaxis()
+        diffAxisME = iME.GetYaxis()
+        projOpt = "zx"
+    elif diff1 == 'mult':
+        diffAxisSE = iSE.GetZaxis()
+        diffAxisME = iME.GetZaxis()
+        projOpt = "yx"
+    else:
+        print("Error in getBinRangeHistos: diff1 axis not known. Please choose either 'mT' or 'mult'")
+        exit()
+
+    if type(binsdiff1) == list:
+        limits = []
+        for diff_value in binsdiff1:
+            bin_value = diffAxisSE.FindBin(float(diff_value))
+            limits.append(bin_value)
+    else:
+        print("Error in getBinRangeHistos: bin input \"" + str(binsdiff1) + "\" not a list of ranges!")
+        exit()
+
+    histos = []
+    for n in range(1, len(limits)):
+        name = "[%.2f-%.2f)" % (diffAxisSE.GetBinLowEdge(limits[n - 1]), diffAxisSE.GetBinLowEdge(limits[n]))
+        diffAxisSE.SetRange(limits[n - 1], limits[n])
+        diffAxisME.SetRange(limits[n - 1], limits[n])
+        se = iSE.Project3D("SE_"+projOpt+"_"+name)
+        me = iME.Project3D("ME_"+projOpt+"_"+name)
+        histos.append([se.Clone(), me.Clone()])
+
+    return histos
 
 # splits th2 in section based on provided bins
 def getBinRangeHistos(iSE, iME, bins):
@@ -445,21 +510,35 @@ def getCorrelation(se, me, name, conf, norm = None):
     del ch
     return [se, me, cf]
 
+def getDifferential3D(se, me, diff3d, binsdiff3d, htype, bins, rebin, norm):
+    histos = []
+    histos.append([se.Clone("SE kmTmult"), me.Clone("ME kmTmult")]) 
+    
+    diff3d_histos = getBinRangeHistos3D(se, me, diff3d, binsdiff3d)
+    
+    for se, me in diff3d_histos:
+        histos.append(getDifferential(se, me, htype, bins, rebin, norm))
+    
+    return histos
+
 # returns [[iSE, iME], [se, me, cf]] for a list of mt or mult ranges
 # [[iSE, iME], [se, me, cf, [rebin: [...], [...], ...], [bin 2 [rebin]], ...]
-def getDifferential(se, me, htype, bins, rebin, norm):
+def getDifferential(ise, ime, htype, bins, rebin, norm):
     histos = []
     if htype == 'mult':
         conf = "mult: "
-        histos.append([se.Clone("SE kmult"), me.Clone("ME kmult")])
+        histos.append([ise.Clone("SE kmult"), ime.Clone("ME kmult")])
     elif htype == 'mt':
         conf = "mt: "
-        histos.append([se.Clone("SE kmT"), me.Clone("ME kmT")])
+        histos.append([ise.Clone("SE kmT"), ime.Clone("ME kmT")])
+    elif htype == 'mtmult':
+        conf = "diff_2"
+        histos.append([ise.Clone("SE diff_2"), ime.Clone("ME diff_2")])
     else:
         print("getDifferential: no kmT or kmult input!")
         exit()
 
-    mt_histos = getBinRangeHistos(se, me, bins)
+    mt_histos = getBinRangeHistos(ise, ime, bins)
     for n, [name, se, me] in enumerate(mt_histos, 1):
         histos.append(getCorrelation(se, me, name, conf + name, norm))
         histos[n].append([])

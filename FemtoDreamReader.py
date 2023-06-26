@@ -54,6 +54,12 @@ class FemtoDreamReader(FR.FileReader):
 
     def get_kmt_mc(self):
         return self.get_histo("SameEvent_MC/relPairkstarmT"), self.get_histo("MixedEvent_MC/relPairkstarmT")
+    
+    def get_kmtmult(self):
+        return self.get_histo("SameEvent/relPairkstarmTMult"), self.get_histo("MixedEvent/relPairkstarmTMult")
+    
+    def get_kmtmult_mc(self):
+        return self.get_histo("SameEvent_MC/relPairkstarmTMult"), self.get_histo("MixedEvent_MC/relPairkstarmTMult")
 
     def get_kmult(self):
         return self.get_histo("SameEvent/relPairkstarMult"), self.get_histo("MixedEvent/relPairkstarMult")

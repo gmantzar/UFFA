@@ -20,6 +20,8 @@ class FemtoDreamSaver(FS.FileSaver):
         self._htype = settings['htype']             # histo type
         self._mc    = settings['mc']                # bool monte carlo data
         self._bins  = settings['bins']              # bin range for differential
+        self._diff3d = settings['diff3d']
+        self._binsdiff3d = settings['binsdiff3d']
         self._rebin = settings['rebin']             # rebin factors for all se, me, cf plots
         self._debug = settings['debug']
         FS.FileSaver.setDebug(self._debug)
@@ -113,21 +115,55 @@ class FemtoDreamSaver(FS.FileSaver):
                         del dir_rebin
                 self.writeInDir(dir_root, "Tracks_one_MC", hist_track_mc)
                 hist_pur.Write()
+
         elif self._atype == 'dif':                      # differential
-            self.write(hist_in)                             # [iSE, iME]
-            for n in range(len(self._bins) - 1):            # list: [1, 2, 3, 4] -> ranges: [1-2, 2-3, 3-4]
-                dir_bin = dir_root.mkdir("bin: " + str(n + 1))
-                dir_bin.cd()
-                if self._rebin:                             # rebin directories inside each mt/mult bin directory
-                    self.write(hist_smc[n][:3])             # [[se, me, cf, [rebins]], ...]
-                    for m in range(len(self._rebin)):
-                        dir_rebin = dir_bin.mkdir("rebin: " + str(self._rebin[m]))
-                        dir_rebin.cd()
-                        self.write(hist_smc[n][3][m])       # [[se, me, cf, [rebins]], ...]
+
+            if self._htype == 'mtmult':                 # 3D histogramms
+
+                self.write(hist_in)                                   # [iSE, iME]
+                for n in range(len(self._binsdiff3d) - 1):            # list: [1, 2, 3, 4] -> ranges: [1-2, 2-3, 3-4]
+                    dir_bindiff3d = dir_root.mkdir("bin "+str(self._diff3d)+": " + str(n + 1))
+                    dir_bindiff3d.cd()
+
+                    self.write(hist_smc[n][0])                        # 2D projection in the first bin of the 3D histogram
+                    for nm in range(1, len(self._bins)):
+
+                        dir_bin = dir_bindiff3d.mkdir("bin: " + str(nm))
                         dir_bin.cd()
-                        del dir_rebin
-                dir_root.cd()
-                del dir_bin
+                        self.write(hist_smc[n][nm][:3])             # [[se, me, cf, [rebins]], ...]
+                                                                    #   ^^^^^^^^^^^
+                        if self._rebin:                             # rebin directories inside each mt/mult bin directory
+                            for m in range(len(self._rebin)):
+                                dir_rebin = dir_bin.mkdir("rebin: " + str(self._rebin[m]))
+                                dir_rebin.cd()
+                                self.write(hist_smc[n][nm][3][m])   # [[se, me, cf, [rebins]], ...]
+                                                                    #               ^^^^^^^^^
+                                dir_bin.cd()
+                                del dir_rebin
+                        dir_bindiff3d.cd()
+                        del dir_bin
+
+                    dir_root.cd()
+                    del dir_bindiff3d
+                    
+
+            else:
+
+                self.write(hist_in)                             # [iSE, iME]
+                for n in range(len(self._bins) - 1):            # list: [1, 2, 3, 4] -> ranges: [1-2, 2-3, 3-4]
+                    dir_bin = dir_root.mkdir("bin: " + str(n + 1))
+                    dir_bin.cd()
+                    self.write(hist_smc[n][:3])             # [[se, me, cf, [rebins]], ...]
+                    if self._rebin:                             # rebin directories inside each mt/mult bin directory
+                        for m in range(len(self._rebin)):
+                            dir_rebin = dir_bin.mkdir("rebin: " + str(self._rebin[m]))
+                            dir_rebin.cd()
+                            self.write(hist_smc[n][3][m])       # [[se, me, cf, [rebins]], ...]
+                            dir_bin.cd()
+                            del dir_rebin
+                    dir_root.cd()
+                    del dir_bin
+
             self.writeInDir(dir_root, "Event", hist_event)
             self.writeInDir(dir_root, "Tracks_one", hist_track)
             if self._mc:                            # monte carlo directory
