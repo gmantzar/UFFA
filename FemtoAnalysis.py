@@ -148,8 +148,8 @@ class Systematics():
                 cont_var = cf_proj.GetBinContent(j)
                 self._dif.Fill(cf_proj.GetBinCenter(i), cont_def - cont_var)    # fill th2 with difference to default
             dif_proj = self._dif.ProjectionY("diff xbin" + str(i), i, i)
-            proj_min = dif_proj.GetBinContent(dif_proj.FindFirstBinAbove(0))    # minimum value of difference
-            proj_max = dif_proj.GetBinContent(dif_proj.FindLastBinAbove(0))     # maximum value of difference
+            proj_min = dif_proj.GetBinCenter(dif_proj.FindFirstBinAbove(0))     # minimum value of difference
+            proj_max = dif_proj.GetBinCenter(dif_proj.FindLastBinAbove(0))      # maximum value of difference
             self._sys.SetBinContent(i, (proj_max - proj_min) / (12**0.5))       # assume a square distribution
 
     def SetBinning(self, n):
