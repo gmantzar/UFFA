@@ -49,6 +49,7 @@ class FileReader:
             if dir_new.Class() == ROOT.TList.Class():
                 continue
             dir_new.cd()
+        return True
 
     # find and return object
     def _get_obj(self, obj_name):
@@ -164,6 +165,7 @@ class FileReader:
 
     # function to change directory
     def cd(self, dir_name = None):
+        found = False
         if not dir_name and dir_name != 0:
             if len(self._tree) == 1:
                 if FileReader.DEBUG:
@@ -172,13 +174,20 @@ class FileReader:
             else:
                 self._tree.pop()                        # remove entry for working directory list
                 self._wdir = self._tree[-1]
+                found = True
         else:
             # 0 is the root directory of the file
             if dir_name == 0:
                 self._wdir = self._ifile
                 self._tree = [self._ifile]              # reset working directory list
+                found = True
             else:
-                self._set_dir(dir_name)
+                found = self._set_dir(dir_name)
+
+
+        if FileReader.DEBUG:
+            print("FileReader: cd(\"" + str(dir_name) + "\"): " + str(found))
+        return found
 
     # list directory content
     def ls(self):
@@ -206,13 +215,13 @@ class FileReader:
         return self._wdir.GetName()
 
     # return file
-    def get_file(self):
+    def GetFile(self):
         if FileReader.DEBUG:
             print("file: \"" + self._ifile.GetName() + "\"")
-        return self._ifile.GetName()
+        return self._ifile
 
     # toggle debug output or set with 'option'
-    def setDebug(option = None):
+    def SetDebug(self, option = None):
         if type(option) == bool:
             FileReader.DEBUG = option
             return

@@ -1,5 +1,6 @@
 import FemtoAnalysis as FA
 import FemtoDreamReader as FDR
+import sys
 
 #
 #   All options for UFFA:
@@ -33,7 +34,7 @@ import FemtoDreamReader as FDR
 ipath = "root_input/"
 opath = ""
 
-filename = "AnalysisResults_LHC22q_pass3.root"
+filename = sys.argv[1]
 
 templates = ""
 
@@ -48,19 +49,19 @@ namelist = ['prim', 'lam', 'sig', 'fake']
 
 settings_cf = {
         "function":     'cf',
-        "file":         ipath + filename,
+        "file":         filename,
         "fileTDir":     "",
         "newfile":      "new",
         "outDir":       opath,
         "mc":           None,
         "mcTDir":       "",
-        "rename":       None,
-        "atype":        'diff',
+        "rename":       "test.root",
+        "atype":        'int',
         "htype":        'kmult',
-        "bins":         [0, 20, 40, 60],
-        #"bins":         [0.5, 1.5, 3, 4],
-        "rebin":        [2, 3, 4],
-        "normalize":    [0.2, 0.3],
+        #"bins":         [0, 20, 40, 60],
+        "bins":         [0.5, 1.5, 3, 4],
+        "rebin":        4,
+        "normalize":    None,
         "debug":        True
     }
 
@@ -82,5 +83,24 @@ settings_tf = {
         "debug":        False
         }
 
-FA.UFFA(settings_cf)
+settings_syst = {
+        "function":     'syst',
+        "file":         filename,
+        "fileTDir":     "",
+        "newfile":      "new",
+        "outDir":       opath,
+        "mc":           None,
+        "mcTDir":       "",
+        "rename":       "test.root",
+        "atype":        'int',
+        "htype":        'kstar',
+        #"bins":         [0, 20, 40, 60],
+        "bins":         [0.5, 1.5, 3, 4],
+        "rebin":        None,
+        "normalize":    None,
+        "exclude":      'femto-dream-pair-task-track-track_Var01',
+        "debug":        True
+    }
+
+FA.UFFA(settings_syst)
 
