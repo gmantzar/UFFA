@@ -10,6 +10,7 @@ class FemtoDreamSaver(FS.FileSaver):
         FS.FileSaver.__init__(self)
         self._histos = histos
         self._func  = settings['function']          # save structure for 'function'
+        self._pair  = settings['pair']
         self._oname = settings['rename'] if settings['rename'] \
                 else  settings['file']              # output file name
         self._nfile = settings['newfile']           # "new", "recreate" or "update"
@@ -70,6 +71,7 @@ class FemtoDreamSaver(FS.FileSaver):
 
         hist_event = self._histos[4]
         hist_track = self._histos[5]
+        hist_v0    = self._histos[7]
         if self._mc:
             hist_track_mc = self._histos[6]
             hist_pur = getPurity(hist_track[0], hist_track_mc[0])
@@ -97,6 +99,11 @@ class FemtoDreamSaver(FS.FileSaver):
                     del dir_rebin
             self.writeInDir(dir_root, "Event", hist_event)
             self.writeInDir(dir_root, "Tracks_one", hist_track)
+            if self._pair == 'pl':
+                self.writeInDir(dir_root, "V0_two", hist_v0[0])
+                self.writeInDir(dir_root, "V0Child_pos", hist_v0[1])
+                self.writeInDir(dir_root, "V0Child_neg", hist_v0[2])
+
             if self._mc:
                 dir_mc = dir_root.mkdir("mc")
                 dir_mc.cd()
@@ -115,11 +122,8 @@ class FemtoDreamSaver(FS.FileSaver):
                         del dir_rebin
                 self.writeInDir(dir_root, "Tracks_one_MC", hist_track_mc)
                 hist_pur.Write()
-
         elif self._atype == 'dif':                      # differential
-
             if self._htype == 'mtmult':                 # 3D histogramms
-
                 self.write(hist_in)                                   # [iSE, iME]
                 for n in range(len(self._binsdiff3d) - 1):            # list: [1, 2, 3, 4] -> ranges: [1-2, 2-3, 3-4]
                     dir_bindiff3d = dir_root.mkdir("bin "+str(self._diff3d)+": " + str(n + 1))
@@ -127,7 +131,6 @@ class FemtoDreamSaver(FS.FileSaver):
 
                     self.write(hist_smc[n][0])                        # 2D projection in the first bin of the 3D histogram
                     for nm in range(1, len(self._bins)):
-
                         dir_bin = dir_bindiff3d.mkdir("bin: " + str(nm))
                         dir_bin.cd()
                         self.write(hist_smc[n][nm][:3])             # [[se, me, cf, [rebins]], ...]
@@ -137,7 +140,7 @@ class FemtoDreamSaver(FS.FileSaver):
                                 dir_rebin = dir_bin.mkdir("rebin: " + str(self._rebin[m]))
                                 dir_rebin.cd()
                                 self.write(hist_smc[n][nm][3][m])   # [[se, me, cf, [rebins]], ...]
-                                                                    #               ^^^^^^^^^
+                                                                    #               ^^^^^^^^
                                 dir_bin.cd()
                                 del dir_rebin
                         dir_bindiff3d.cd()
@@ -145,15 +148,12 @@ class FemtoDreamSaver(FS.FileSaver):
 
                     dir_root.cd()
                     del dir_bindiff3d
-                    
-
             else:
-
                 self.write(hist_in)                             # [iSE, iME]
                 for n in range(len(self._bins) - 1):            # list: [1, 2, 3, 4] -> ranges: [1-2, 2-3, 3-4]
                     dir_bin = dir_root.mkdir("bin: " + str(n + 1))
                     dir_bin.cd()
-                    self.write(hist_smc[n][:3])             # [[se, me, cf, [rebins]], ...]
+                    self.write(hist_smc[n][:3])                 # [[se, me, cf, [rebins]], ...]
                     if self._rebin:                             # rebin directories inside each mt/mult bin directory
                         for m in range(len(self._rebin)):
                             dir_rebin = dir_bin.mkdir("rebin: " + str(self._rebin[m]))
@@ -166,6 +166,11 @@ class FemtoDreamSaver(FS.FileSaver):
 
             self.writeInDir(dir_root, "Event", hist_event)
             self.writeInDir(dir_root, "Tracks_one", hist_track)
+            if self._pair == 'pl':
+                self.writeInDir(dir_root, "V0_two", hist_v0[0])
+                self.writeInDir(dir_root, "V0Child_pos", hist_v0[1])
+                self.writeInDir(dir_root, "V0Child_neg", hist_v0[2])
+
             if self._mc:                            # monte carlo directory
                 dir_mc = dir_root.mkdir("mc")
                 dir_mc.cd()
