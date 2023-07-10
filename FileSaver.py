@@ -4,10 +4,12 @@ import FileUtils as FU
 # class that handles the saving of the histograms in the correct file structure
 class FileSaver():
     DEBUG = False
-    def __init__(self):
+    def __init__(self, name = None, option = None):
         self._file = None
         self._wdir  = None
         self._tree  = []
+        if name:
+            self.touch(name, option)
 
     # make file and if "new" option is passed, create new file and rename if file already exists
     def touch(self, name, option = None):
@@ -44,6 +46,28 @@ class FileSaver():
             pass
         dir_root.cd()
         del dir_new
+
+    # takes folder input in the form [dir name, [dir content]]
+    # where the content can include another folder input
+    def write_full_dir(self, folder):
+        current = self._wdir
+        name = folder[0]
+        cont = folder[1]
+
+        if len(name) > 5 and name[-4:] == 'root':
+            pass
+        else:
+            self._wdir = self._wdir.mkdir(name)
+            self._wdir.cd()
+
+        for entry in cont:
+            if type(entry) == list:
+                self.write_full_dir(entry)
+            else:
+                entry.Write()
+
+        self._wdir = current
+        self._wdir.cd()
 
     # function to change directory
     # cd(0) goes back to the root of the file
@@ -146,3 +170,5 @@ class FileSaver():
             print("dir: \"" + self._wdir.GetName() + "\"")
         return self._wdir.GetName()
 
+    def Close(self):
+        self._file.Close()

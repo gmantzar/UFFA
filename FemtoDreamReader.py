@@ -12,59 +12,64 @@ class FemtoDreamReader(FR.FileReader):
 
     ### Getter Functions ###
     def get_pt(self):
-        return self.get_histo("Tracks_one/hPt")
+        return self.GetHisto("Tracks_one/hPt")
 
     def get_pt_mc(self):
-        return self.get_histo("Tracks_one_MC/hPt_ReconNoFake")
+        return self.GetHisto("Tracks_one_MC/hPt_ReconNoFake")
 
     def get_dca(self):
-        return self.get_histo("Tracks_one/hDCAxy")
+        return self.GetHisto("Tracks_one/hDCAxy")
 
     def get_dca_mc(self):
-        return [self.get_histo("Tracks_one_MC/hDCAxy_Primary"), \
-                self.get_histo("Tracks_one_MC/hDCAxy_DaughterLambda"), \
-                self.get_histo("Tracks_one_MC/hDCAxy_DaughterSigmaplus"), \
-                self.get_histo("Tracks_one_MC/hDCAxy_Material")]
+        return [self.GetHisto("Tracks_one_MC/hDCAxy_Primary"), \
+                self.GetHisto("Tracks_one_MC/hDCAxy_DaughterLambda"), \
+                self.GetHisto("Tracks_one_MC/hDCAxy_DaughterSigmaplus"), \
+                self.GetHisto("Tracks_one_MC/hDCAxy_Material")]
 
     def get_zvxt(self):
-        return self.get_histo("Event/zvtxhist")
+        return self.GetHisto("Event/zvtxhist")
 
     def get_event(self):
-        return self.get_histos("Event")
+        return self.GetHistos("Event")
 
     def get_tracks(self):
-        return self.get_histos("Tracks_one")
+        return self.GetHistos("Tracks_one")
 
     def get_tracks_mc(self):
-        return self.get_histos("Tracks_one_MC")
+        return self.GetHistos("Tracks_one_MC")
+
+    def get_v0(self):
+        return [self.GetHistos("V0_two"), \
+                self.GetHistos("V0Child_pos"), \
+                self.GetHisots("V0Child_neg")]
 
     def get_se(self):
-        return self.get_histo("SameEvent/relPairDist")
+        return self.GetHisto("SameEvent/relPairDist")
 
     def get_me(self):
-        return self.get_histo("MixedEvent/relPairDist")
+        return self.GetHisto("MixedEvent/relPairDist")
 
     def get_kstar(self):
-        return self.get_histo("SameEvent/relPairDist"), self.get_histo("MixedEvent/relPairDist")
+        return self.GetHisto("SameEvent/relPairDist"), self.GetHisto("MixedEvent/relPairDist")
 
     def get_kstar_mc(self):
-        return self.get_histo("SameEvent_MC/relPairDist"), self.get_histo("MixedEvent_MC/relPairDist")
+        return self.GetHisto("SameEvent_MC/relPairDist"), self.GetHisto("MixedEvent_MC/relPairDist")
 
     def get_kmt(self):
-        return self.get_histo("SameEvent/relPairkstarmT"), self.get_histo("MixedEvent/relPairkstarmT")
+        return self.GetHisto("SameEvent/relPairkstarmT"), self.GetHisto("MixedEvent/relPairkstarmT")
 
     def get_kmt_mc(self):
-        return self.get_histo("SameEvent_MC/relPairkstarmT"), self.get_histo("MixedEvent_MC/relPairkstarmT")
-    
+        return self.GetHisto("SameEvent_MC/relPairkstarmT"), self.GetHisto("MixedEvent_MC/relPairkstarmT")
+
     def get_kmtmult(self):
-        return self.get_histo("SameEvent/relPairkstarmTMult"), self.get_histo("MixedEvent/relPairkstarmTMult")
-    
+        return self.GetHisto("SameEvent/relPairkstarmTMult"), self.GetHisto("MixedEvent/relPairkstarmTMult")
+
     def get_kmtmult_mc(self):
-        return self.get_histo("SameEvent_MC/relPairkstarmTMult"), self.get_histo("MixedEvent_MC/relPairkstarmTMult")
+        return self.GetHisto("SameEvent_MC/relPairkstarmTMult"), self.GetHisto("MixedEvent_MC/relPairkstarmTMult")
 
     def get_kmult(self):
-        return self.get_histo("SameEvent/relPairkstarMult"), self.get_histo("MixedEvent/relPairkstarMult")
+        return self.GetHisto("SameEvent/relPairkstarMult"), self.GetHisto("MixedEvent/relPairkstarMult")
 
     def get_kmult_mc(self):
-        return self.get_histo("SameEvent_MC/relPairkstarMult"), self.get_histo("MixedEvent_MC/relPairkstarMult")
+        return self.GetHisto("SameEvent_MC/relPairkstarMult"), self.GetHisto("MixedEvent_MC/relPairkstarMult")
 

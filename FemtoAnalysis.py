@@ -190,6 +190,7 @@ class cf_handler():
         self._event = None
         self._tracks = None
         self._tracks_mc = None
+        self._v0 = None
         self._get_histos()
 
     # retrieves histos from the provided file reader
@@ -210,13 +211,12 @@ class cf_handler():
             self._se, self._me = self._file.get_kmtmult()
             if self._mc:
                 self._se_mc, self._me_mc = self._file.get_kmtmult_mc()
-        try:
-            self._event = self._file.get_event()        # event histos
-            self._tracks = self._file.get_tracks()      # track histos
-            if self._mc:
-                self._tracks_mc = self._file.get_tracks_mc()
-        except:
-            pass
+        self._event = self._file.get_event()
+        self._tracks = self._file.get_tracks()
+        if self._mc:
+            self._tracks_mc = self._file.get_tracks_mc()
+        if self._pair == 'pl':
+            self._v0 = self._file.get_v0()
 
     # computes the cf for integrated or differential analysis and for mc data
     # and returns the histos for all the different options
@@ -238,7 +238,7 @@ class cf_handler():
                 if self._mc:
                     histos_mc = getDifferential(self._se_mc, self._me_mc, self._htype, self._bins, self._rebin, self._norm)
 
-        return [histos, histos_unw, histos_mc, histos_unw_mc, self._event, self._tracks, self._tracks_mc]
+        return [histos, histos_unw, histos_mc, histos_unw_mc, self._event, self._tracks, self._tracks_mc, self._v0]
 
     # returns a list of cf and their rebinned version
     # [[cf, [rebin 1, rebin 2, ...]], [bin2...], ...] same for unweighted if integrated analysis
@@ -531,7 +531,7 @@ def config(dic_conf):
 
     # type of particle pair
     if 'pair' in dic_conf:
-        dic['pair'] = dic_conf['pair']
+        dic['pair'] = dic_conf['pair'].lower()
 
     # input directory
     if 'path' in dic_conf:

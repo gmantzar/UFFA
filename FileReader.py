@@ -75,14 +75,20 @@ class FileReader:
     def get_histo(self, histo_name, dir_name = None):
         dir_name = FU.path_fix(dir_name)
         if not dir_name or dir_name == "":
-            return self._get_obj(histo_name)
-        return self._get_obj(dir_name + '/' + histo_name)
+            histo = self._get_obj(histo_name)
+        else:
+            histo = self._get_obj(dir_name + '/' + histo_name)
+        histo.SetDirectory(0)
+        return histo
 
-    def getHisto(self, histo_name, dir_name = None):
+    def GetHisto(self, histo_name, dir_name = None):
         dir_name = FU.path_fix(dir_name)
         if not dir_name or dir_name == "":
-            return self._get_obj(histo_name)
-        return self._get_obj(dir_name + '/' + histo_name)
+            histo = self._get_obj(histo_name)
+        else:
+            histo = self._get_obj(dir_name + '/' + histo_name)
+        histo.SetDirectory(0)
+        return histo
 
     # function to retrieve all histograms in a directory as a list
     def get_histos(self, dir_name = None):
@@ -111,7 +117,7 @@ class FileReader:
             hist.SetDirectory(0)
         return histos
 
-    def getHistos(self, dir_name = None):
+    def GetHistos(self, dir_name = None):
         if dir_name:
             dir_name = FU.path_fix(dir_name)             # fix the path
             directory = self._get_obj(dir_name)             # set directory
@@ -138,13 +144,16 @@ class FileReader:
         return histos
 
     # function to retrieve a full directory as a list
-    def get_dir(self, dir_name = None):
+    def get_full_dir(self, dir_name = None):
+        current = self._wdir
         if dir_name:
             dir_name = FU.path_fix(dir_name)
             directory = self._get_obj(dir_name)
+            self._wdir = directory
         else:
             directory = self._wdir
-        dir_content = []
+        content = [directory.GetName(), []]
+
         if directory.Class() == ROOT.TList.Class():
             lnk = directory.FirstLink
             lobj_ent = directory.GetEntries()
@@ -152,16 +161,25 @@ class FileReader:
             lobj = directory.GetListOfKeys()
             lobj_ent = lobj.GetEntries()
             lnk = lobj.FirstLink()
+
         for n in range(lobj_ent):
+            # read object
             if directory.Class() == ROOT.TList.Class():
                 obj = lnk.GetObject()
             else:
                 obj = lnk.GetObject().ReadObj()
-            dir_content.append(obj)
+            # check if object is another folder
+            if obj.Class() == ROOT.TDirectory.Class() \
+                    or obj.Class() == ROOT.TDirectoryFile.Class() \
+                    or obj.Class() == ROOT.TList.Class():
+                        content[1].append(self.get_full_dir(obj.GetName()))
+            else:
+                obj.SetDirectory(0)
+                content[1].append(obj)
+            # next entry
             lnk = lnk.Next()
-        for entry in dir_content:
-            entry.SetDirectory(0)
-        return dir_content
+        self._wdir = current
+        return content
 
     # function to change directory
     def cd(self, dir_name = None):
@@ -210,6 +228,12 @@ class FileReader:
 
     # return current directory
     def get_dir(self):
+        if FileReader.DEBUG:
+            print("dir: \"" + self._wdir.GetName() + "\"")
+        return self._wdir.GetName()
+
+    # return current directory
+    def GetDir(self):
         if FileReader.DEBUG:
             print("dir: \"" + self._wdir.GetName() + "\"")
         return self._wdir.GetName()
