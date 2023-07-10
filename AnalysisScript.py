@@ -1,13 +1,13 @@
 import FemtoAnalysis as FA
 import FemtoDreamReader as FDR
-import sys
+#import sys
 
 #
 #   All options for UFFA:
 #
 #   settings = {
 #           "function":     None,       # Function Name: 'cf', 'tf'
-#           "pair":         None,       # No effect yet
+#           "pair":         None,       # 'pl' for v0 qa plots
 #           "path":         "",         # system's directory of 'file'
 #           "file":         None,       # name of 'file', can also be the full path to the file
 #           "fileTDir":     "",         # TDirectory/TList inside of 'file'
@@ -31,10 +31,11 @@ import sys
 #
 
 
-ipath = "root_input/"
+ipath = ""
 opath = ""
 
-filename = sys.argv[1]
+#filename = sys.argv[1]
+filename = ""
 
 templates = ""
 
@@ -49,6 +50,7 @@ namelist = ['prim', 'lam', 'sig', 'fake']
 
 settings_cf = {
         "function":     'cf',
+        "pair":         'pp',
         "file":         filename,
         "fileTDir":     "",
         "newfile":      "new",
