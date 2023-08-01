@@ -381,8 +381,13 @@ def getDifferential3D(iSE, iME, diff3d, binsdiff3d, htype, bins, rebin, norm):
 
     diff3d_histos = getBinRangeHistos3D(iSE, iME, diff3d, binsdiff3d)
 
+    htypeSplit2 = ""
+    if diff3d == 'kmult':
+        htypeSplit2 = "kmt"
+    elif diff3d == 'mt':
+        htypeSplit2 = "mult"
     for se, me in diff3d_histos:
-        histos.append(getDifferential(se, me, htype, bins, rebin, norm))
+        histos.append(getDifferential(se, me, htypeSplit2, bins, rebin, norm))
 
     return histos
 
