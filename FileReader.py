@@ -143,7 +143,8 @@ class FileReader:
             hist.SetDirectory(0)
         return histos
 
-    # function to retrieve a full directory as a list
+    # function to retrieve a full directory as [name, [content]]
+    # where content can include more directory structures
     def get_full_dir(self, dir_name = None):
         current = self._wdir
         if dir_name:
@@ -202,7 +203,6 @@ class FileReader:
             else:
                 found = self._set_dir(dir_name)
 
-
         if FileReader.DEBUG:
             print("FileReader: cd(\"" + str(dir_name) + "\"): " + str(found))
         return found
@@ -251,3 +251,5 @@ class FileReader:
             return
         FileReader.DEBUG = not FileReader.DEBUG
 
+    def Close(self):
+        self._ifile.Close()
