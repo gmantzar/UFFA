@@ -117,7 +117,23 @@ def UFFA_syst(settings):
             for i in range(len_rebin):
                 syst_plots[n][1].append(syst[n][1][i].GetAll())
 
-    histos = (cf_list, syst_plots)
+    # generates the graphs with the systematic errors for the cf and the rebinned entries
+    tgraphs = []
+    for n, (hist, hist_rebin) in enumerate(cf_list):
+        tgraphs.append([ROOT.TGraphErrors(), []])
+        for i in range(1, hist.GetNbinsX() + 1):
+            tgraphs[n][0].SetName("CF syst graph")
+            tgraphs[n][0].SetPoint(i - 1, hist.GetBinCenter(i), hist.GetBinContent(i))
+            tgraphs[n][0].SetPointError(i - 1, 0, syst_plots[n][0][2].GetBinContent(i))
+        if conf['rebin']:
+            for i in range(len_rebin):
+                tgraphs[n][1].append(ROOT.TGraphErrors())
+                for j in range(1, hist.GetNbinsX() + 1):
+                    tgraphs[n][1][i].SetName("CF syst graph")
+                    tgraphs[n][1][i].SetPoint(j - 1, hist_rebin[i].GetBinCenter(j), hist_rebin[i].GetBinContent(j))
+                    tgraphs[n][1][i].SetPointError(j - 1, 0, syst_plots[n][1][j][2].GetBinContent(j))
+
+    histos = (cf_list, syst_plots, tgraphs)
     fds = FDS.FemtoDreamSaver(conf, histos)
 
 # class that returns the systematics of a cf

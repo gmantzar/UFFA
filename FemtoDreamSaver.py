@@ -199,7 +199,7 @@ class FemtoDreamSaver(FS.FileSaver):
         self._create_output("UFFA_syst_")
 
         # [[syst cf, [rebins]], [bin2...], ...], [[[cf, diff, syst, dev], [rebins]], [bin2...], ...]
-        syst, syst_plots = self._histos
+        syst, syst_plots, tgraphs = self._histos
 
         default = "femto-dream-pair-task-track-track"
         if self._idir == default:
@@ -210,12 +210,14 @@ class FemtoDreamSaver(FS.FileSaver):
 
         if self._atype == 'int':
             syst[0][0].Write()
+            tgraphs[0][0].Write()
             self.write(syst_plots[0][0])
             if self._rebin:
                 for i, factor in enumerate(self._rebin):
                     dir_rebin = dir_root.mkdir("rebin: " + str(factor))
                     dir_rebin.cd()
                     syst[0][1][i].Write()
+                    tgraphs[0][1][i].Write()
                     self.write(syst_plots[0][1][i])
                     dir_root.cd()
                     del dir_rebin
@@ -224,12 +226,14 @@ class FemtoDreamSaver(FS.FileSaver):
                 dir_bin = dir_root.mkdir("bin: " + str(n + 1))
                 dir_bin.cd()
                 syst[n][0].Write()
+                tgraphs[n][0].Write()
                 self.write(syst_plots[n][0])
                 if self._rebin:
                     for i, factor in enumerate(self._rebin):
                         dir_rebin = dir_bin.mkdir("rebin: " + str(factor))
                         dir_rebin.cd()
                         syst[n][1][i].Write()
+                        tgraphs[n][1][i].Write()
                         self.write(syst_plots[0][1][i])
                         dir_bin.cd()
                         del dir_rebin
