@@ -124,33 +124,50 @@ def UFFA_syst(settings):
 # add variations with AddVar(var) before calling GenSyst()
 # GetAll() returns [th2 cf, th2 difference, th1 systematics, th1 std dev]
 class Systematics():
+    counter = 0
     ybins = 512
+    #ybins = 256
+    #ybins = 1024
+    #ybins = 2048
     def __init__(self, cf):
         self._cf = cf
         self._xaxis = cf.GetXaxis()
         self._xbins = cf.GetNbinsX()
-        self._var = ROOT.TH2D("CF th2", "CF th2", self._xbins, self._xaxis.GetXmin(), self._xaxis.GetXmax(), Systematics.ybins, 0, 3)
-        self._dif = ROOT.TH2D("diff th2", "diff th2", self._xbins, self._xaxis.GetXmin(), self._xaxis.GetXmax(), Systematics.ybins*2, -3, 3)
-        self._sys = ROOT.TH1D("syst th1", "syst th1", self._xbins, self._xaxis.GetXmin(), self._xaxis.GetXmax())
-        self._dev = ROOT.TH1D("dev th1", "dev th1", self._xbins, self._xaxis.GetXmin(), self._xaxis.GetXmax())
+        if Systematics.counter == 0:
+            text = ""
+        else:
+            text = " " + str(Systematics.counter)
+        self._var = ROOT.TH2D("CF th2" + text, "CF th2", self._xbins, self._xaxis.GetXmin(), self._xaxis.GetXmax(), Systematics.ybins, 0, 10)
+        self._dif = ROOT.TH2D("diff th2" + text, "diff th2", self._xbins, self._xaxis.GetXmin(), self._xaxis.GetXmax(), Systematics.ybins*2, -10, 10)
+        self._sys = ROOT.TH1D("syst th1" + text, "syst th1", self._xbins, self._xaxis.GetXmin(), self._xaxis.GetXmax())
+        self._dev = ROOT.TH1D("dev th1" + text, "dev th1", self._xbins, self._xaxis.GetXmin(), self._xaxis.GetXmax())
+        Systematics.counter = Systematics.counter + 1
 
     def AddVar(self, cf_var):
-        for i in range(1, self._xbins):
-            self._var.Fill(cf_var.GetBinCenter(i), cf_var.GetBinContent(i))
+        for i in range(1, self._xbins + 1):
+            self._var.SetBinContent(i, self._var.GetYaxis().FindBin(cf_var.GetBinContent(i)), 1)
 
     def GenSyst(self):
-        for i in range(1, self._xbins):
+        for i in range(1, self._xbins + 1):
             cf_proj = self._var.ProjectionY("cf xbin" + str(i), i, i)
             dev = cf_proj.GetStdDev()
             self._dev.SetBinContent(i, dev)
             cont_def = self._cf.GetBinContent(i)
             for j in range(Systematics.ybins):
-                cont_var = cf_proj.GetBinContent(j)
-                self._dif.Fill(cf_proj.GetBinCenter(i), cont_def - cont_var)    # fill th2 with difference to default
+                var_min = cf_proj.GetBinCenter(cf_proj.FindFirstBinAbove(0))
+                var_max = cf_proj.GetBinCenter(cf_proj.FindLastBinAbove(0))
+                #self._dif.Fill(cf_proj.GetBinCenter(i), var_min)                # fill th2 with difference to default
+                #self._dif.Fill(cf_proj.GetBinCenter(i), var_max)                # fill th2 with difference to default
+                self._dif.SetBinContent(i, self._dif.GetYaxis().FindBin(var_min), 1)
+                self._dif.SetBinContent(i, self._dif.GetYaxis().FindBin(var_max), 1)
             dif_proj = self._dif.ProjectionY("diff xbin" + str(i), i, i)
             proj_min = dif_proj.GetBinCenter(dif_proj.FindFirstBinAbove(0))     # minimum value of difference
             proj_max = dif_proj.GetBinCenter(dif_proj.FindLastBinAbove(0))      # maximum value of difference
             self._sys.SetBinContent(i, (proj_max - proj_min) / (12**0.5))       # assume a square distribution
+        self._var.SetDirectory(0)
+        self._dif.SetDirectory(0)
+        self._sys.SetDirectory(0)
+        self._dev.SetDirectory(0)
 
     def SetBinning(self, n):
         Systematics.ybins = n
@@ -262,11 +279,11 @@ class cf_handler():
                 if self._atype == 'int' and self._htype != 'k':
                     cf_list_unw[1].append(histos_unw[2][n][1])      # rebinned unw cf for integrated
         if self._atype == 'dif':
-            for n in range(len(self._bins)):
-                cf_list.append([histos[n + 2][2], []])
+            for n in range(1, len(self._bins) - 1):
+                cf_list.append([histos[n + 1][2], []])
                 if self._rebin:
                     for m in range(len(self._rebin)):
-                        cf_list[n + 1][1].append(histos[n + 2][3][n][2])    # rebinned cf appended to rebin list
+                        cf_list[n + 1][1].append(histos[n + 1][3][n][2])    # rebinned cf appended to rebin list
         return [cf_list, cf_list_unw]
 
 # splits th2 in section based on provided bins

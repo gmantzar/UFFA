@@ -61,9 +61,10 @@ class CorrelationHandler:
         low_bin = self.__cf.FindBin(low)
         low_edge = self.__cf.GetBinLowEdge(low_bin)
         high_bin = self.__cf.FindBin(high)
-        high_edge = self.__cf.GetBinLowEdge(high_bin+1)
+        high_edge = self.__cf.GetBinLowEdge(high_bin + 1)
         cf_integral = self.__cf.Integral(low_bin, high_bin, 'width')
-        self.__cf.Scale( (high_edge - low_edge) / cf_integral)
+        if cf_integral > 0:
+            self.__cf.Scale((high_edge - low_edge) / cf_integral)
 
     ###   Getter functions   ###
     # Histogramms for same event distribution

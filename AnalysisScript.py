@@ -35,7 +35,7 @@ ipath = ""
 opath = ""
 
 #filename = sys.argv[1]
-filename = ""
+filename = "SysVar.root"
 
 templates = ""
 
@@ -58,10 +58,10 @@ settings_cf = {
         "mc":           None,
         "mcTDir":       "",
         "rename":       "test.root",
-        "atype":        'int',
+        "atype":        'dif',
         "htype":        'kmult',
-        #"bins":         [0, 20, 40, 60],
-        "bins":         [0.5, 1.5, 3, 4],
+        "bins":         [0, 20, 40, 60],
+        #"bins":         [0.5, 1.2, 2.5, 4],
         "rebin":        4,
         "normalize":    None,
         "debug":        True
@@ -94,13 +94,13 @@ settings_syst = {
         "mc":           None,
         "mcTDir":       "",
         "rename":       "test.root",
-        "atype":        'int',
-        "htype":        'kstar',
+        "atype":        'dif',
+        "htype":        'kmt',
         #"bins":         [0, 20, 40, 60],
-        "bins":         [0.5, 1.5, 3, 4],
+        "bins":         [0.5, 1.2, 2.5, 4],
         "rebin":        None,
         "normalize":    None,
-        "exclude":      'femto-dream-pair-task-track-track_Var01',
+        #"exclude":      'femto-dream-pair-task-track-track_Var01',
         "debug":        True
     }
 

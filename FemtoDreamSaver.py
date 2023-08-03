@@ -32,8 +32,6 @@ class FemtoDreamSaver(FS.FileSaver):
             self._save_tf()
         elif self._func == 'syst':
             self._save_syst()
-        else:
-            self._save_cf()
 
     # create the output file
     def _create_output(self, prepend):
@@ -222,11 +220,11 @@ class FemtoDreamSaver(FS.FileSaver):
                     dir_root.cd()
                     del dir_rebin
         elif self._atype == 'dif':
-            for n in range(1, len(syst) + 1):
-                dir_bin = dir_root.mkdir("bin: " + str(n))
+            for n in range(len(syst)):
+                dir_bin = dir_root.mkdir("bin: " + str(n + 1))
                 dir_bin.cd()
                 syst[n][0].Write()
-                self.write(syst[n][0])
+                self.write(syst_plots[n][0])
                 if self._rebin:
                     for i, factor in enumerate(self._rebin):
                         dir_rebin = dir_bin.mkdir("rebin: " + str(factor))
