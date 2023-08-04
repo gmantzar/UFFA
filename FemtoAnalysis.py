@@ -231,8 +231,8 @@ def UFFA_syst_3d(settings):
 # GetAll() returns [th2 cf, th2 difference, th1 systematics, th1 std dev]
 class Systematics():
     counter = 0
-    ybins = 128
-    #ybins = 256
+    #ybins = 128
+    ybins = 256
     #ybins = 512
     #ybins = 1024
     #ybins = 2048
