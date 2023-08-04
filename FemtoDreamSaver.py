@@ -31,7 +31,10 @@ class FemtoDreamSaver(FS.FileSaver):
         elif self._func == 'tf':
             self._save_tf()
         elif self._func == 'syst':
-            self._save_syst()
+            if self._htype == 'mtmult':
+                self._save_syst_3d()
+            else:
+                self._save_syst()
 
     # create the output file
     def _create_output(self, prepend):
@@ -234,9 +237,45 @@ class FemtoDreamSaver(FS.FileSaver):
                         dir_rebin.cd()
                         syst[n][1][i].Write()
                         tgraphs[n][1][i].Write()
-                        self.write(syst_plots[0][1][i])
+                        self.write(syst_plots[n][1][i])
                         dir_bin.cd()
                         del dir_rebin
                 dir_root.cd()
                 del dir_bin
+
+    # [[[bin1-1 cf, [rebin cf]], [bin1-2 cf, [rebin cf]], ...], [[bin2-1 cf, [rebin cf]], [bin2-2 cf, [rebin cf]], ...], ...]
+    # [[syst cf, [rebins]], [bin2...], ...], [[[cf, diff, syst, dev], [rebins]], [bin2...], ...] <---- not actually the real layout
+    def _save_syst_3d(self):
+        # create the output file
+        self._create_output("UFFA_syst_")
+
+        syst, syst_plots, tgraphs = self._histos
+
+        default = "femto-dream-pair-task-track-track"
+        if self._idir == default:
+            dir_root = self._file.mkdir(default + "_std")
+        else:
+            dir_root = self._file.mkdir(self._idir)
+        dir_root.cd()
+
+        for n, bin1 in enumerate(syst):
+            dir_bin1 = dir_root.mkdir("bin: " + str(n + 1))
+            dir_bin1.cd()
+            for nn, bin2 in enumerate(bin1):
+                dir_bin2 = dir_bin1.mkdir("bin: " + str(nn + 1))
+                dir_bin2.cd()
+                syst[n][nn][0].Write()
+                tgraphs[n][nn][0].Write()
+                self.write(syst_plots[n][nn][0])
+                if self._rebin:
+                    for nnn, factor in enumerate(self._rebin):
+                        dir_rebin = dir_bin2.mkdir("rebin: " + str(factor))
+                        dir_rebin.cd()
+                        syst[n][nn][1][nnn].Write()
+                        tgraphs[n][nn][1][nnn].Write()
+                        self.write(syst_plots[n][nn][1][nnn])
+                        dir_bin2.cd()
+                        del dir_rebin
+                dir_bin1.cd()
+                del dir_bin2
 

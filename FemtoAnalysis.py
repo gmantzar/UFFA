@@ -6,13 +6,17 @@ import CorrelationHandler as CH
 import TemplateFit as TF
 
 def UFFA(settings):
-    match settings['function']:
+    conf = config(settings)
+    match conf['function']:
         case 'cf':
-            UFFA_cf(settings)
+            UFFA_cf(conf)
         case 'tf':
-            UFFA_tf(settings)
+            UFFA_tf(conf)
         case 'syst':
-            UFFA_syst(settings)
+            if conf['htype'] == 'mtmult':
+                UFFA_syst_3d(conf)
+            else:
+                UFFA_syst(conf)
 
 # correlation function
 def UFFA_cf(settings):
@@ -93,6 +97,7 @@ def UFFA_syst(settings):
             else:
                 niter += 1
                 continue
+
         ch_var = cf_handler(fdr, conf)
         cf_var, cf_var_unw = ch_var.get_cf()
         for n, [ck_var, ck_var_rebin] in enumerate(cf_var):
@@ -136,13 +141,99 @@ def UFFA_syst(settings):
     histos = (cf_list, syst_plots, tgraphs)
     fds = FDS.FemtoDreamSaver(conf, histos)
 
+# systematics
+def UFFA_syst_3d(settings):
+    conf = config(settings)
+    fdr = FDR.FemtoDreamReader(conf['fullpath'], conf['fileTDir'])
+
+    # default cf
+    ch = cf_handler(fdr, conf)
+    histos = ch.get_cf_3d()                                # [[cf, [rebins]], [bin2...], ...], [[cf unw, [rebins]], [bin2...], ...]
+
+    syst = []
+    syst_plots = []
+
+    if conf['rebin']:
+        len_rebin = len(conf['rebin'])
+
+    # [[[bin1-1 cf, [rebin cf]], [bin1-2 cf, [rebin cf]], ...], [[bin2-1 cf, [rebin cf]], [bin2-2 cf, [rebin cf]], ...], ...]
+    for n, bin1 in enumerate(histos):
+        syst.append([])
+        for nn, [cf, cf_rebin] in enumerate(bin1):
+            syst[n].append([Systematics(cf), []])
+            if conf['rebin']:
+                for nnn in range(len_rebin):
+                    syst[n][nn][1].append(Systematics(cf_rebin[nnn]))
+
+    # loop over data variations in file and calculate the cf for each
+    # which is then saved in a th2 from which the systematic error is computed and saved in a th1
+    file_dir = fdr.get_dir();
+    niter = 1           # start at _Var01
+    fdr.cd(0)           # class method of FileSaver to return to root of file
+    while (fdr.cd(file_dir + f"_Var{niter:02d}")):
+        # allows to include/exclude specific variations
+        if conf['exclude'] and file_dir + f"_Var{niter:02d}" in conf['exclude']:
+            niter += 1
+            continue
+        elif conf['include']:
+            if fdr.get_dir() in conf['include']:
+                pass
+            else:
+                niter += 1
+                continue
+
+        ch_var = cf_handler(fdr, conf)
+        histos_var = ch_var.get_cf_3d()
+
+        for n, bin1 in enumerate(histos_var):
+            for nn, [cf, cf_rebin] in enumerate(bin1):
+                syst[n][nn][0].AddVar(cf)
+                if conf['rebin']:
+                    for nnn in range(len_rebin):
+                        syst[n][nn][1][nnn].AddVar(cf_rebin[nnn])
+        niter += 1
+        del ch_var
+
+    # generate th2 plots for systematics
+    for n, bin1 in enumerate(syst):
+        syst_plots.append([])
+        for nn, bin2 in enumerate(bin1):
+            syst[n][nn][0].GenSyst()
+            syst_plots[n].append([syst[n][nn][0].GetAll(), []])
+            if conf['rebin']:
+                for nnn in range(len_rebin):
+                    syst[n][nn][1][nnn].GenSyst()
+                    syst_plots[n][nn][1].append(syst[n][nn][1][nnn].GetAll())
+
+    # generates the graphs with the systematic errors for the cf and the rebinned entries
+    tgraphs = []
+    for n, bin1 in enumerate(histos):
+        tgraphs.append([])
+        for nn, [hist, hist_rebin] in enumerate(bin1):
+            tgraphs[n].append([ROOT.TGraphErrors(), []])
+            for nnn in range(1, hist.GetNbinsX() + 1):
+                tgraphs[n][nn][0].SetName("CF syst graph")
+                tgraphs[n][nn][0].SetPoint(nnn - 1, hist.GetBinCenter(nnn), hist.GetBinContent(nnn))
+                tgraphs[n][nn][0].SetPointError(nnn - 1, 0, syst_plots[n][nn][0][2].GetBinContent(nnn))
+            if conf['rebin']:
+                for nnn in range(len_rebin):
+                    tgraphs[n][nn][1].append(ROOT.TGraphErrors())
+                    for nnnn in range(1, hist.GetNbinsX() + 1):
+                        tgraphs[n][nn][1][nnn].SetName("CF syst graph")
+                        tgraphs[n][nn][1][nnn].SetPoint(nnnn - 1, hist_rebin[nnn].GetBinCenter(nnnn), hist_rebin[nnn].GetBinContent(nnnn))
+                        tgraphs[n][nn][1][nnn].SetPointError(nnnn - 1, 0, syst_plots[n][nn][1][nnn][2].GetBinContent(nnnn))
+
+    all_histos = (histos, syst_plots, tgraphs)
+    fds = FDS.FemtoDreamSaver(conf, all_histos)
+
 # class that returns the systematics of a cf
 # add variations with AddVar(var) before calling GenSyst()
 # GetAll() returns [th2 cf, th2 difference, th1 systematics, th1 std dev]
 class Systematics():
     counter = 0
-    ybins = 512
+    ybins = 128
     #ybins = 256
+    #ybins = 512
     #ybins = 1024
     #ybins = 2048
     def __init__(self, cf):
@@ -282,7 +373,7 @@ class cf_handler():
         cf_list_unw = []
         if self._atype == 'int':        # integrated analysis
             histos, histos_unw = getIntegrated(self._se, self._me, self._htype, self._rebin, self._norm)
-            if self._htype != 'k':
+            if self._htype == 'mult':
                 cf_list_unw.append(histos_unw[1])
                 cf_list_unw.append([])
         elif self._atype == 'dif':      # differential analysis
@@ -292,7 +383,7 @@ class cf_handler():
         if self._rebin:
             for n in range(len(self._rebin)):
                 cf_list[0][1].append(histos[1][3][n][2])            # rebinned cf
-                if self._atype == 'int' and self._htype != 'k':
+                if self._atype == 'int' and self._htype == 'mult':
                     cf_list_unw[1].append(histos_unw[2][n][1])      # rebinned unw cf for integrated
         if self._atype == 'dif':
             for n in range(1, len(self._bins) - 1):
@@ -301,6 +392,19 @@ class cf_handler():
                     for m in range(len(self._rebin)):
                         cf_list[n + 1][1].append(histos[n + 1][3][n][2])    # rebinned cf appended to rebin list
         return [cf_list, cf_list_unw]
+
+# returns all the cf's for a 3D mt/mult histo
+# [[[bin1-1 cf, [rebin cf]], [bin1-2 cf, [rebin cf]], ...], [[bin2-1 cf, [rebin cf]], [bin2-2 cf, [rebin cf]], ...], ...]
+    def get_cf_3d(self):
+        cf_list = []
+
+        histos = getDifferential3D(self._se, self._me, self._diff3d, self._binsdiff3d, self._htype, self._bins, self._rebin, self._norm)
+        for n in range(1, len(histos)):
+            cf_list.append([])
+            for nn in range(1, len(histos[n])):
+                cf_list[n - 1].append([histos[n][nn][2], []])
+
+        return cf_list
 
 # splits th2 in section based on provided bins
 def getBinRangeHistos(iSE, iME, bins):
@@ -408,14 +512,20 @@ def getDifferential(iSE, iME, htype, bins, rebin, norm):
                 histos[n][3].append(getCorrelation(se_rebin, me_rebin, name, conf + name + rebin_conf, norm))
     return histos
 
+# [[iSE, iME], [[1st proj SE, 1st proj ME], [se, me, cf, [rebin], [bin 2 [rebin]]]], ...]
 def getDifferential3D(iSE, iME, diff3d, binsdiff3d, htype, bins, rebin, norm):
     histos = []
     histos.append([iSE.Clone("SE kmTmult"), iME.Clone("ME kmTmult")])
 
     diff3d_histos = getBinRangeHistos3D(iSE, iME, diff3d, binsdiff3d)
 
+    htypeSplit2 = ""
+    if diff3d == 'kmult':
+        htypeSplit2 = "kmt"
+    elif diff3d == 'mt':
+        htypeSplit2 = "mult"
     for se, me in diff3d_histos:
-        histos.append(getDifferential(se, me, htype, bins, rebin, norm))
+        histos.append(getDifferential(se, me, htypeSplit2, bins, rebin, norm))
 
     return histos
 
@@ -564,7 +674,8 @@ def config(dic_conf):
 
     # type of particle pair
     if 'pair' in dic_conf:
-        dic['pair'] = dic_conf['pair'].lower()
+        if dic_conf['pair']:
+            dic['pair'] = dic_conf['pair'].lower()
 
     # input directory
     if 'path' in dic_conf:
@@ -637,11 +748,12 @@ def config(dic_conf):
 
     # template fit type
     if 'tftype' in dic_conf:
-        tftype = dic_conf['tftype'].lower()
-        if tftype == 'dca':
-            dic['tftype'] = 'dca'
-        elif tftype == 'cpa':
-            dic['tftype'] = 'cpa'
+        if dic_conf['tftype']:
+            tftype = dic_conf['tftype'].lower()
+            if tftype == 'dca':
+                dic['tftype'] = 'dca'
+            elif tftype == 'cpa':
+                dic['tftype'] = 'cpa'
 
     # mc data file
     if 'mc' in dic_conf:

@@ -41,7 +41,7 @@ class FemtoDreamReader(FR.FileReader):
     def get_v0(self):
         return [self.GetHistos("V0_two"), \
                 self.GetHistos("V0Child_pos"), \
-                self.GetHisots("V0Child_neg")]
+                self.GetHistos("V0Child_neg")]
 
     def get_se(self):
         return self.GetHisto("SameEvent/relPairDist")
