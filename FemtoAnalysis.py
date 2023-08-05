@@ -57,14 +57,16 @@ def UFFA_syst(settings):
     conf = config(settings)
     fdr = FDR.FemtoDreamReader(conf['fullpath'], conf['fileTDir'])
 
+    # default cf
+    ch = cf_handler(fdr, conf)
+    cf, cf_unw = ch.get_cf()                                # [[cf, [rebins]], [bin2...], ...], [[cf unw, [rebins]], [bin2...], ...]
+
     # input same event for yield filtering
     if conf['yield']:
         se = fdr.get_se()
         pair_num_se = se.Integral(se.FindBin(0), se.FindBin(conf['yield'][0]))
-
-    # default cf
-    ch = cf_handler(fdr, conf)
-    cf, cf_unw = ch.get_cf()                                # [[cf, [rebins]], [bin2...], ...], [[cf unw, [rebins]], [bin2...], ...]
+    if conf['debug']:
+        se_all = ch.get_se()
 
     cf_list = []
     if conf['rebin']:
@@ -105,6 +107,9 @@ def UFFA_syst(settings):
         elif folder.rsplit('_')[-1][:3] != "Var":
             continue
 
+        ch_var = cf_handler(fdr, conf)
+        cf_var, cf_var_unw = ch_var.get_cf()
+
         if conf['yield']:
             se_var = fdr.get_se()
             pair_num_var = se_var.Integral(se_var.FindBin(0), se_var.FindBin(conf['yield'][0]))
@@ -113,9 +118,17 @@ def UFFA_syst(settings):
                 if conf['debug']:
                     dev = deviation * 100
                     print("Variation: \"" + folder + "\"\nIntegrated yield in [0, " + str(conf['yield'][0]) + ") GeV differs by: " + f"{dev:.1f} %")
+        if conf['debug'] and conf['htype'] != 'k':
+            se_var_all = ch_var.get_se()
+            tab = '\t'
+            print("Differential yield:")
+            for n, bin1 in enumerate(se_var_all):
+                yield_all = se_all[n][0].Integral()
+                yield_all_var = se_var_all[n][0].Integral()
+                deviation = (abs(yield_all - yield_all_var) / yield_all) * 100
+                print(f"{tab}{conf['htype']:s}:  [{conf['bins'][n]:.2f}, {conf['bins'][n + 1]:.2f}) {tab} {deviation:5.2f} %")
+            print()
 
-        ch_var = cf_handler(fdr, conf)
-        cf_var, cf_var_unw = ch_var.get_cf()
         for n, [ck_var, ck_var_rebin] in enumerate(cf_var):
             syst[n][0].AddVar(ck_var)
             if conf['rebin']:
@@ -227,7 +240,7 @@ def UFFA_syst_3d(settings):
                     yield_all = se_all[n][nn][0].Integral()
                     yield_all_var = se_var_all[n][nn][0].Integral()
                     deviation = (abs(yield_all - yield_all_var) / yield_all) * 100
-                    print(f"{tab}{conf['diff3d2']:s}:  [{conf['bins'][nn]:.2f}, {conf['bins'][nn + 1]:.2f}) {tab} {deviation:.1f} %")
+                    print(f"{tab}{conf['diff3d2']:s}:  [{conf['bins'][nn]:.2f}, {conf['bins'][nn + 1]:.2f}) {tab} {deviation:5.2f} %")
                 print()
 
         # add rebinned variations
