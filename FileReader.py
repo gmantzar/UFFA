@@ -78,6 +78,9 @@ class FileReader:
             histo = self._get_obj(histo_name)
         else:
             histo = self._get_obj(dir_name + '/' + histo_name)
+        if not histo:
+            return None
+
         histo.SetDirectory(0)
         return histo
 
@@ -232,6 +235,33 @@ class FileReader:
             print("dir: \"" + self._wdir.GetName() + "\"")
         return self._wdir.GetName()
 
+    # return list of folders in current folder
+    def get_folder_names(self):
+        folders = []
+        directory = self._wdir
+        if directory.Class() == ROOT.TList.Class():
+            lnk = directory.FirstLink
+            lobj_ent = directory.GetEntries()
+        else:
+            lobj = directory.GetListOfKeys()
+            lobj_ent = lobj.GetEntries()
+            lnk = lobj.FirstLink()
+
+        for n in range(lobj_ent):
+            if directory.Class() == ROOT.TList.Class():
+                obj = lnk.GetObject()
+            else:
+                obj = lnk.GetObject().ReadObj()
+
+            # check if object is another folder
+            if obj.Class() == ROOT.TDirectory.Class() \
+                    or obj.Class() == ROOT.TDirectoryFile.Class() \
+                    or obj.Class() == ROOT.TList.Class():
+                        folders.append(obj.GetName())
+
+            lnk = lnk.Next()
+        return folders
+
     # return current directory
     def GetDir(self):
         if FileReader.DEBUG:
@@ -243,6 +273,10 @@ class FileReader:
         if FileReader.DEBUG:
             print("file: \"" + self._ifile.GetName() + "\"")
         return self._ifile
+
+    # return list of keys
+    def get_keys(self):
+        return self._wdir.GetListOfKeys()
 
     # toggle debug output or set with 'option'
     def SetDebug(self, option = None):
