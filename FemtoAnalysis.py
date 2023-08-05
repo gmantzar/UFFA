@@ -242,6 +242,11 @@ def UFFA_syst_3d(settings):
                     deviation = (abs(yield_all - yield_all_var) / yield_all) * 100
                     print(f"{tab}{conf['diff3d2']:s}:  [{conf['bins'][nn]:.2f}, {conf['bins'][nn + 1]:.2f}) {tab} {deviation:5.2f} %")
                 print()
+            if conf['interactive']:
+                option = input("Include [Y/n] ")
+                if option and option.lower()[0] == 'n':
+                    print("\"" + folder + "\" excluded!\n")
+                    continue
 
         # add rebinned variations
         for n, bin1 in enumerate(histos_var):
@@ -775,7 +780,8 @@ def config(dic_conf):
             "normalize":    None,
             "include":      None,
             "exclude":      None,
-            "debug":        False
+            "debug":        False,
+            "interactive":  False
         }
 
     k_keys      = ['k', 'kstar', '1']
@@ -940,9 +946,11 @@ def config(dic_conf):
     if 'exclude' in dic_conf:
         dic['exclude'] = bin2list(dic_conf['exclude'])
 
-    # normalize cf in range
     if 'debug' in dic_conf:
         dic['debug'] = bool(dic_conf['debug'])
+
+    if 'interactive' in dic_conf:
+        dic['interactive'] = bool(dic_conf['interactive'])
 
     return dic
 
