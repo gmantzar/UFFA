@@ -95,12 +95,15 @@ settings_syst = {
         "mcTDir":       "",
         "rename":       "test.root",
         "atype":        'dif',
-        "htype":        'kmt',
+        "htype":        'mtmult',
+        "diff3d":       'mt',
+        "bins":         [ 0, 7, 11, 15, 20, 27, 200 ],
+        "binsdiff3d":   [ 0, 1.08, 1.26, 1.32, 1.44, 1.65, 1.9, 4.5 ],
         #"bins":         [0, 20, 40, 60],
-        "bins":         [0.5, 1.2, 2.5, 4],
+        #"bins":         [0.5, 1.2, 2.5, 4],
         "rebin":        None,
         "normalize":    None,
-        #"exclude":      'femto-dream-pair-task-track-track_Var01',
+        #"exclude":      '',
         "debug":        True
     }
 
