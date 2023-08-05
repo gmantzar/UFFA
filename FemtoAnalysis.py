@@ -117,7 +117,7 @@ def UFFA_syst(settings):
             if deviation > conf['yield'][1]:
                 if conf['debug']:
                     dev = deviation * 100
-                    print("Variation: \"" + folder + "\"\nIntegrated yield in [0, " + str(conf['yield'][0]) + ") GeV differs by: " + f"{dev:.1f} %")
+                    print("Variation: \"" + folder + "\"\nIntegrated yield k*: [0, " + str(conf['yield'][0]) + ") differs by " + f"{dev:.1f} %")
         if conf['debug'] and conf['htype'] != 'k':
             se_var_all = ch_var.get_se()
             tab = '\t'
@@ -230,12 +230,12 @@ def UFFA_syst_3d(settings):
             if deviation > conf['yield'][1]:
                 if conf['debug']:
                     dev = deviation * 100
-                    print("Variation: \"" + folder + "\"\nIntegrated yield in [0, " + str(conf['yield'][0]) + ") GeV differs by: " + f"{dev:.1f} %")
+                    print("Variation: \"" + folder + "\"\nIntegrated yield k*: [0, " + str(conf['yield'][0]) + ") differs by " + f"{dev:.1f} %")
         if conf['debug']:
             se_var_all = ch_var.get_se_3d()
             tab = '\t'
             for n, bin1 in enumerate(se_var_all):
-                print(f"Differential yield in {conf['diff3d']:s}: [{conf['binsdiff3d'][n]:.2f}, {conf['binsdiff3d'][n + 1]:.2f}):")
+                print(f"Differential yield {conf['diff3d']:s}: [{conf['binsdiff3d'][n]:.2f}, {conf['binsdiff3d'][n + 1]:.2f})")
                 for nn, bin2 in enumerate(bin1):
                     yield_all = se_all[n][nn][0].Integral()
                     yield_all_var = se_var_all[n][nn][0].Integral()
