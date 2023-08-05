@@ -161,14 +161,16 @@ def UFFA_syst_3d(settings):
     conf = config(settings)
     fdr = FDR.FemtoDreamReader(conf['fullpath'], conf['fileTDir'])
 
+    # default cf
+    ch = cf_handler(fdr, conf)
+    histos = ch.get_cf_3d()                                # [[cf, [rebins]], [bin2...], ...], [[cf unw, [rebins]], [bin2...], ...]
+
     # input same event for yield filtering
     if conf['yield']:
         se = fdr.get_se()
         pair_num_se = se.Integral(se.FindBin(0), se.FindBin(conf['yield'][0]))
-
-    # default cf
-    ch = cf_handler(fdr, conf)
-    histos = ch.get_cf_3d()                                # [[cf, [rebins]], [bin2...], ...], [[cf unw, [rebins]], [bin2...], ...]
+    if conf['debug']:
+        se_all = ch.get_se_3d()
 
     syst = []
     syst_plots = []
@@ -176,7 +178,7 @@ def UFFA_syst_3d(settings):
     if conf['rebin']:
         len_rebin = len(conf['rebin'])
 
-    # [[[bin1-1 cf, [rebin cf]], [bin1-2 cf, [rebin cf]], ...], [[bin2-1 cf, [rebin cf]], [bin2-2 cf, [rebin cf]], ...], ...]
+    # create systematic object for all entries
     for n, bin1 in enumerate(histos):
         syst.append([])
         for nn, [cf, cf_rebin] in enumerate(bin1):
@@ -188,12 +190,12 @@ def UFFA_syst_3d(settings):
     # loop over data variations in file and calculate the cf for each
     # which is then saved in a th2 from which the systematic error is computed and saved in a th1
     file_dir = fdr.get_dir();
-    fdr.cd(0)           # class method of FileSaver to return to root of file
+    fdr.cd(0)                               # class method of FileSaver to return to root of file
     folders = fdr.get_folder_names()
     for folder in folders:
         fdr.cd(folder)
 
-        # allows to include/exclude specific variations
+        # include/exclude specific variations
         if conf['exclude'] and folder in conf['exclude']:
             continue
         elif conf['include']:
@@ -204,6 +206,10 @@ def UFFA_syst_3d(settings):
         elif folder.rsplit('_')[-1][:3] != "Var":
             continue
 
+        ch_var = cf_handler(fdr, conf)
+        histos_var = ch_var.get_cf_3d()
+
+        # compare integrated yields in given range
         if conf['yield']:
             se_var = fdr.get_se()
             pair_num_var = se_var.Integral(se_var.FindBin(0), se_var.FindBin(conf['yield'][0]))
@@ -212,10 +218,19 @@ def UFFA_syst_3d(settings):
                 if conf['debug']:
                     dev = deviation * 100
                     print("Variation: \"" + folder + "\"\nIntegrated yield in [0, " + str(conf['yield'][0]) + ") GeV differs by: " + f"{dev:.1f} %")
+        if conf['debug']:
+            se_var_all = ch_var.get_se_3d()
+            tab = '\t'
+            for n, bin1 in enumerate(se_var_all):
+                print(f"Differential yield in {conf['diff3d']:s}: [{conf['binsdiff3d'][n]:.2f}, {conf['binsdiff3d'][n + 1]:.2f}):")
+                for nn, bin2 in enumerate(bin1):
+                    yield_all = se_all[n][nn][0].Integral()
+                    yield_all_var = se_var_all[n][nn][0].Integral()
+                    deviation = (abs(yield_all - yield_all_var) / yield_all) * 100
+                    print(f"{tab}{conf['diff3d2']:s}:  [{conf['bins'][nn]:.2f}, {conf['bins'][nn + 1]:.2f}) {tab} {deviation:.1f} %")
+                print()
 
-        ch_var = cf_handler(fdr, conf)
-        histos_var = ch_var.get_cf_3d()
-
+        # add rebinned variations
         for n, bin1 in enumerate(histos_var):
             for nn, [cf, cf_rebin] in enumerate(bin1):
                 syst[n][nn][0].AddVar(cf)
@@ -429,8 +444,35 @@ class cf_handler():
                         cf_list[n][1].append(histos[n][3][nn][2])    # rebinned cf appended to rebin list
         return [cf_list, cf_list_unw]
 
-# returns all the cf's for a 3D mt/mult histo
-# [[[bin1-1 cf, [rebin cf]], [bin1-2 cf, [rebin cf]], ...], [[bin2-1 cf, [rebin cf]], [bin2-2 cf, [rebin cf]], ...], ...]
+    # returns a list of se and their rebinned version
+    def get_se(self):
+        histos = []
+        se_list = []
+
+        # integrated analysis
+        if self._atype == 'int':
+            histos, histos_unw = getIntegrated(self._se, self._me, self._htype, self._rebin, self._norm)
+        # differential analysis
+        elif self._atype == 'dif':
+            histos = getDifferential(self._se, self._me, self._htype, self._bins, self._rebin, self._norm)
+        se_list.append([histos[1][0], []])                          # se for differential 1st bin
+
+        # rebinned entries appended to the empty list for the first bin
+        if self._rebin:
+            for n in range(len(self._rebin)):
+                se_list[0][1].append(histos[1][3][n][0])            # rebinned se
+
+        # repeat for the rest of the bins in case of differential analysis
+        if self._atype == 'dif':
+            for n in range(1, len(self._bins) - 1):
+                se_list.append([histos[n][0], []])
+                if self._rebin:
+                    for nn in range(len(self._rebin)):
+                        se_list[n][1].append(histos[n][3][nn][0])    # rebinned se appended to rebin list
+        return se_list
+
+    # returns all the cf's for a 3D mt/mult histo
+    # [[[bin1-1 cf, [rebin cf]], [bin1-2 cf, [rebin cf]], ...], [[bin2-1 cf, [rebin cf]], [bin2-2 cf, [rebin cf]], ...], ...]
     def get_cf_3d(self):
         cf_list = []
 
@@ -446,6 +488,23 @@ class cf_handler():
                         cf_list[n][nn][1].append(th1[3][nnn][2])
 
         return cf_list
+
+    # returns all the cf's for a 3D mt/mult histo
+    def get_se_3d(self):
+        se_list = []
+
+        histos = getDifferential3D(self._se, self._me, self._diff3d, self._binsdiff3d, self._htype, self._bins, self._rebin, self._norm)
+        histos = histos[1:]     # remove TH3 histos
+        for n, bin1 in enumerate(histos):
+            se_list.append([])
+            bin1 = bin1[1:]     # remove TH2 histos
+            for nn, th1 in enumerate(bin1):
+                se_list[n].append([th1[0], []])
+                if self._rebin:
+                    for nnn in range(len(self._rebin)):
+                        se_list[n][nn][1].append(th1[3][nnn][0])
+
+        return se_list
 
 # splits th2 in section based on provided bins
 def getBinRangeHistos(iSE, iME, bins):
@@ -689,6 +748,7 @@ def config(dic_conf):
             "rename":       None,
             "bins":         None,
             "diff3d":       "",
+            "diff3d2":      "",
             "binsdiff3d":   None,
             "yield":        None,
             "rebin":        None,
@@ -818,8 +878,10 @@ def config(dic_conf):
             diff3d = diff3d.lower()
         if diff3d in mult_keys:
             dic['diff3d'] = 'mult'
+            dic['diff3d2'] = 'mt'
         elif diff3d in mt_keys:
             dic['diff3d'] = 'mt'
+            dic['diff3d2'] = 'mult'
 
     # binning of the first differential split in case of a 3D analysis;
     # if used, 'bins' will be used for the binning of the second split
