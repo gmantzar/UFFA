@@ -468,7 +468,7 @@ class cf_handler():
                 cf_list.append([histos[n][2], []])
                 if self._rebin:
                     for nn in range(len(self._rebin)):
-                        cf_list[n][1].append(histos[n][3][nn][2])    # rebinned cf appended to rebin list
+                        cf_list[n - 1][1].append(histos[n - 1][3][nn][2])    # rebinned cf appended to rebin list
         return [cf_list, cf_list_unw]
 
     # returns a list of se and their rebinned version
