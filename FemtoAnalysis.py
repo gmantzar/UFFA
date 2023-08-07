@@ -110,6 +110,8 @@ def UFFA_syst(settings):
         ch_var = cf_handler(fdr, conf)
         cf_var, cf_var_unw = ch_var.get_cf()
 
+        if conf['debug']:
+            print("Variation: \"" + folder + "\"")
         if conf['yield']:
             se_var = fdr.get_se()
             pair_num_var = se_var.Integral(se_var.FindBin(0), se_var.FindBin(conf['yield'][0]))
@@ -117,7 +119,10 @@ def UFFA_syst(settings):
             if deviation > conf['yield'][1]:
                 if conf['debug']:
                     dev = deviation * 100
-                    print("Variation: \"" + folder + "\"\nIntegrated yield k*: [0, " + str(conf['yield'][0]) + ") differs by " + f"{dev:.1f} %")
+                    print("Integrated yield k*: [0, " + str(conf['yield'][0]) + ") differs by " + f"{dev:.1f} %")
+                    if deviation > conf['yield'][1]:
+                        print("Variation: Excluded!\n")
+                        continue
         if conf['debug'] and conf['htype'] != 'k':
             se_var_all = ch_var.get_se()
             tab = '\t'
@@ -222,6 +227,8 @@ def UFFA_syst_3d(settings):
         ch_var = cf_handler(fdr, conf)
         histos_var = ch_var.get_cf_3d()
 
+        if conf['debug']:
+            print("Variation: \"" + folder + "\"")
         # compare integrated yields in given range
         if conf['yield']:
             se_var = fdr.get_se()
@@ -230,7 +237,10 @@ def UFFA_syst_3d(settings):
             if deviation > conf['yield'][1]:
                 if conf['debug']:
                     dev = deviation * 100
-                    print("Variation: \"" + folder + "\"\nIntegrated yield k*: [0, " + str(conf['yield'][0]) + ") differs by " + f"{dev:.1f} %")
+                    print("Integrated yield k*: [0, " + str(conf['yield'][0]) + ") differs by " + f"{dev:.1f} %")
+                    if deviation > conf['yield'][1]:
+                        print("Variation: Excluded!\n")
+                        continue
         if conf['debug']:
             se_var_all = ch_var.get_se_3d()
             tab = '\t'
@@ -294,11 +304,7 @@ def UFFA_syst_3d(settings):
 # GetAll() returns [th2 cf, th2 difference, th1 systematics, th1 std dev]
 class Systematics():
     counter = 0
-    #ybins = 128
-    ybins = 256
-    #ybins = 512
-    #ybins = 1024
-    #ybins = 2048
+    ybins = 1000
     def __init__(self, cf):
         self._cf = cf
         self._xaxis = cf.GetXaxis()
@@ -308,17 +314,20 @@ class Systematics():
         else:
             text = " " + str(Systematics.counter)
         self._var = ROOT.TH2D("CF th2" + text, "CF th2", self._xbins, self._xaxis.GetXmin(), self._xaxis.GetXmax(), Systematics.ybins, 0, 10)
-        self._dif = ROOT.TH2D("diff th2" + text, "diff th2", self._xbins, self._xaxis.GetXmin(), self._xaxis.GetXmax(), Systematics.ybins*2, -10, 10)
+        self._dif = ROOT.TH2D("diff th2" + text, "diff th2", self._xbins, self._xaxis.GetXmin(), self._xaxis.GetXmax(), Systematics.ybins, -5, 5)
         self._sys = ROOT.TH1D("syst th1" + text, "syst th1", self._xbins, self._xaxis.GetXmin(), self._xaxis.GetXmax())
         self._dev = ROOT.TH1D("dev th1" + text, "dev th1", self._xbins, self._xaxis.GetXmin(), self._xaxis.GetXmax())
         Systematics.counter = Systematics.counter + 1
 
     def AddVar(self, cf_var):
         for i in range(1, self._xbins + 1):
-            self._var.SetBinContent(i, self._var.GetYaxis().FindBin(cf_var.GetBinContent(i)), 1)
-
+            if self._cf.GetBinCenter(i) > 3:    # break over 3GeV
+                break
+            self._var.Fill(cf_var.GetBinCenter(i), cf_var.GetBinContent(i))
     def GenSyst(self):
         for i in range(1, self._xbins + 1):
+            if self._cf.GetBinCenter(i) > 3:    # break over 3GeV
+                break
             cf_proj = self._var.ProjectionY("cf xbin" + str(i), i, i)
             dev = cf_proj.GetStdDev()
             self._dev.SetBinContent(i, dev)

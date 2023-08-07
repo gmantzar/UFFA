@@ -97,17 +97,18 @@ settings_syst = {
         "atype":        'dif',
         "htype":        'mtmult',
         "diff3d":       'mt',
+        "binsdiff3d":   [0, 1.18, 1.44, 1.9, 4.5],
         "bins":         [0, 20, 40, 200],
-        "binsdiff3d":   [0, 1.08, 1.44, 1.9, 4.5 ],
-        "yield":        [0.3, 0.2],
+        #"yield":        [0.3, 0.2],
         #"atype":        "dif",
-        #"htype":        "kmt",
+        #"htype":        "kmult",
         #"bins":         [0, 20, 40, 60],
         #"bins":         [0.5, 1.2, 2.5, 4],
         #"rebin":        2,
         #"rebin":        [2, 4],
         "normalize":    None,
         #"exclude":      '',
+        #"interactive":  True,
         "debug":        True
     }
 
