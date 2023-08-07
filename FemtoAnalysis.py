@@ -464,7 +464,7 @@ class cf_handler():
 
         # repeat for the rest of the bins in case of differential analysis
         if self._atype == 'dif':
-            for n in range(1, len(self._bins) - 1):
+            for n in range(2, len(self._bins)):
                 cf_list.append([histos[n][2], []])
                 if self._rebin:
                     for nn in range(len(self._rebin)):
