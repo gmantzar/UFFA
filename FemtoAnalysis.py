@@ -192,6 +192,7 @@ def UFFA_syst_3d(settings):
 
     syst = []
     syst_plots = []
+    cf_raw = []
 
     if conf['rebin']:
         len_rebin = len(conf['rebin'])
@@ -210,6 +211,7 @@ def UFFA_syst_3d(settings):
     file_dir = fdr.get_dir();
     fdr.cd(0)                               # class method of FileSaver to return to root of file
     folders = fdr.get_folder_names()
+    folder_counter = -1
     for folder in folders:
         fdr.cd(folder)
 
@@ -257,13 +259,18 @@ def UFFA_syst_3d(settings):
                 if option and option.lower()[0] == 'n':
                     print("\"" + folder + "\" excluded!\n")
                     continue
+        folder_counter += 1
 
+        cf_raw.append([])   # add entry for folder
         # add rebinned variations
         for n, bin1 in enumerate(histos_var):
+            cf_raw[folder_counter].append([])
             for nn, [cf, cf_rebin] in enumerate(bin1):
+                cf_raw[folder_counter][n].append([cf.Clone("CF_" + folder.rsplit('_')[-1]), []])
                 syst[n][nn][0].AddVar(cf)
                 if conf['rebin']:
                     for nnn in range(len_rebin):
+                        cf_raw[folder_counter][n][nn][1].append(cf_rebin[nnn].Clone("CF_" + folder.rsplit('_')[-1]))
                         syst[n][nn][1][nnn].AddVar(cf_rebin[nnn])
         del ch_var
 
@@ -296,7 +303,7 @@ def UFFA_syst_3d(settings):
                         tgraphs[n][nn][1][nnn].SetPoint(nnnn - 1, hist_rebin[nnn].GetBinCenter(nnnn), hist_rebin[nnn].GetBinContent(nnnn))
                         tgraphs[n][nn][1][nnn].SetPointError(nnnn - 1, 0, syst_plots[n][nn][1][nnn][2].GetBinContent(nnnn))
 
-    all_histos = (histos, syst_plots, tgraphs)
+    all_histos = (histos, syst_plots, tgraphs, cf_raw)
     fds = FDS.FemtoDreamSaver(conf, all_histos)
 
 # class that returns the systematics of a cf
@@ -304,7 +311,7 @@ def UFFA_syst_3d(settings):
 # GetAll() returns [th2 cf, th2 difference, th1 systematics, th1 std dev]
 class Systematics():
     counter = 0
-    ybins = 1000
+    ybins = 100
     def __init__(self, cf):
         self._cf = cf
         self._xaxis = cf.GetXaxis()
@@ -324,6 +331,7 @@ class Systematics():
             if self._cf.GetBinCenter(i) > 3:    # break over 3GeV
                 break
             self._var.Fill(cf_var.GetBinCenter(i), cf_var.GetBinContent(i))
+
     def GenSyst(self):
         for i in range(1, self._xbins + 1):
             if self._cf.GetBinCenter(i) > 3:    # break over 3GeV
@@ -399,8 +407,20 @@ class cf_handler():
             self._se, self._me = self._file.get_kmult()
             if self._mc:
                 self._se_mc, self._me_mc = self._file.get_kmult_mc()
+        elif self._htype == 'mult3d':      # TH3 k-mult
+            se, me = self._file.get_kmtmult()
+            self._se = se.Project3D("zx").Clone()
+            self._me = me.Project3D("zx").Clone()
+            if self._mc:
+                self._se_mc, self._me_mc = self._file.get_kmult_mc()
         elif self._htype == 'mt':      # TH2 k-mt
             self._se, self._me = self._file.get_kmt()
+            if self._mc:
+                self._se_mc, self._me_mc = self._file.get_kmt_mc()
+        elif self._htype == 'mt3d':
+            se, me = self._file.get_kmtmult()
+            self._se = se.Project3D("yx").Clone()
+            self._me = me.Project3D("yx").Clone()
             if self._mc:
                 self._se_mc, self._me_mc = self._file.get_kmt_mc()
         elif self._htype == 'mtmult':
@@ -793,12 +813,14 @@ def config(dic_conf):
             "interactive":  False
         }
 
-    k_keys      = ['k', 'kstar', '1']
-    mult_keys   = ['mult', 'kmult', '2']
-    mt_keys     = ['mt', 'kmt', '3']
-    mtmult_keys = ['mtmult','kmtmult', '4']
-    int_keys = ['int', 'integrated', '1']
-    dif_keys = ['diff', 'dif', 'differential', '2']
+    keys_k      = ['k', 'kstar']
+    keys_mult   = ['mult', 'kmult']
+    keys_mult3d = ['mult3d', 'kmult3d']
+    keys_mt     = ['mt', 'kmt']
+    keys_mt3d   = ['mt3d', 'kmt3d']
+    keys_mtmult = ['mtmult','kmtmult']
+    keys_int    = ['int', 'integrated']
+    keys_dif    = ['diff', 'dif', 'differential']
 
     # function to be used
     if 'function' in dic_conf:
@@ -859,9 +881,9 @@ def config(dic_conf):
         atype = dic_conf['atype']
         if type(atype) == str:
             atype = atype.lower()
-        if atype in int_keys:
+        if atype in keys_int:
             dic['atype'] = 'int'
-        elif atype in dif_keys:
+        elif atype in keys_dif:
             dic['atype'] = 'dif'
 
     # histogram type
@@ -869,13 +891,17 @@ def config(dic_conf):
         htype = dic_conf['htype']
         if type(htype) == str:
             htype = htype.lower()
-        if htype in k_keys:
+        if htype in keys_k:
             dic['htype'] = 'k'
-        elif htype in mult_keys:
+        elif htype in keys_mult:
             dic['htype'] = 'mult'
-        elif htype in mt_keys:
+        elif htype in keys_mult3d:
+            dic['htype'] = 'mult3d'
+        elif htype in keys_mt:
             dic['htype'] = 'mt'
-        elif htype in mtmult_keys:
+        elif htype in keys_mt3d:
+            dic['htype'] = 'mt3d'
+        elif htype in keys_mtmult:
             dic['htype'] = 'mtmult'
 
     # template fit type
@@ -904,10 +930,10 @@ def config(dic_conf):
         diff3d = dic_conf['diff3d']
         if type(diff3d) == str:
             diff3d = diff3d.lower()
-        if diff3d in mult_keys:
+        if diff3d in keys_mult:
             dic['diff3d'] = 'mult'
             dic['diff3d2'] = 'mt'
-        elif diff3d in mt_keys:
+        elif diff3d in keys_mt:
             dic['diff3d'] = 'mt'
             dic['diff3d2'] = 'mult'
 

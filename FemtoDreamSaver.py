@@ -249,7 +249,7 @@ class FemtoDreamSaver(FS.FileSaver):
         # create the output file
         self._create_output("UFFA_syst_")
 
-        syst, syst_plots, tgraphs = self._histos
+        syst, syst_plots, tgraphs, cf_raw = self._histos
 
         default = "femto-dream-pair-task-track-track"
         if self._idir == default:
@@ -258,13 +258,22 @@ class FemtoDreamSaver(FS.FileSaver):
             dir_root = self._file.mkdir(self._idir)
         dir_root.cd()
 
+        cf_title = syst[0][0][0].GetTitle().rsplit(' ')
+        bin1_title = cf_title[0]
+        bin2_title = cf_title[2]
         for n, bin1 in enumerate(syst):
-            dir_bin1 = dir_root.mkdir("bin: " + str(n + 1))
+            dir_bin1 = dir_root.mkdir(bin1_title + str(n + 1))
             dir_bin1.cd()
             for nn, bin2 in enumerate(bin1):
-                dir_bin2 = dir_bin1.mkdir("bin: " + str(nn + 1))
+                dir_bin2 = dir_bin1.mkdir(bin2_title + str(nn + 1))
                 dir_bin2.cd()
                 syst[n][nn][0].Write()
+                dir_cf = dir_bin2.mkdir("cf var")
+                dir_cf.cd()
+                for folder in cf_raw:
+                    folder[n][nn][0].Write()
+                dir_bin2.cd()
+                del dir_cf
                 tgraphs[n][nn][0].Write()
                 self.write(syst_plots[n][nn][0])
                 if self._rebin:
@@ -272,10 +281,16 @@ class FemtoDreamSaver(FS.FileSaver):
                         dir_rebin = dir_bin2.mkdir("rebin: " + str(factor))
                         dir_rebin.cd()
                         syst[n][nn][1][nnn].Write()
+                        dir_cf = dir_rebin.mkdir("cf var")
+                        dir_cf.cd()
+                        for folder in cf_raw:
+                            folder[n][nn][1][nnn].Write()
+                        dir_rebin.cd()
                         tgraphs[n][nn][1][nnn].Write()
                         self.write(syst_plots[n][nn][1][nnn])
                         dir_bin2.cd()
                         del dir_rebin
                 dir_bin1.cd()
                 del dir_bin2
+            del dir_bin1
 
