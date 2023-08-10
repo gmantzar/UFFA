@@ -311,7 +311,7 @@ def UFFA_syst_3d(settings):
 # GetAll() returns [th2 cf, th2 difference, th1 systematics, th1 std dev]
 class Systematics():
     counter = 0
-    ybins = 100
+    ybins = 250
     def __init__(self, cf):
         self._cf = cf
         self._xaxis = cf.GetXaxis()
