@@ -311,15 +311,13 @@ def UFFA_syst_3d(settings):
 # GetAll() returns [th2 cf, th2 difference, th1 systematics, th1 std dev]
 class Systematics():
     counter = 0
-    ybins = 250
+    ybins = 1200
     def __init__(self, cf):
         self._cf = cf
         self._xaxis = cf.GetXaxis()
         self._xbins = cf.GetNbinsX()
-        if Systematics.counter == 0:
-            text = ""
-        else:
-            text = " " + str(Systematics.counter)
+
+        text = "" if Systematics.counter == 0 else " " + str(Systematics.counter)
         self._var = ROOT.TH2D("CF th2" + text, "CF th2", self._xbins, self._xaxis.GetXmin(), self._xaxis.GetXmax(), Systematics.ybins, 0, 10)
         self._dif = ROOT.TH2D("diff th2" + text, "diff th2", self._xbins, self._xaxis.GetXmin(), self._xaxis.GetXmax(), Systematics.ybins, -5, 5)
         self._sys = ROOT.TH1D("syst th1" + text, "syst th1", self._xbins, self._xaxis.GetXmin(), self._xaxis.GetXmax())
@@ -330,7 +328,7 @@ class Systematics():
         for i in range(1, self._xbins + 1):
             if self._cf.GetBinCenter(i) > 3:    # break over 3GeV
                 break
-            self._var.Fill(cf_var.GetBinCenter(i), cf_var.GetBinContent(i))
+            self._var.Fill(cf_var.GetBinCenter(i), cf_var.GetBinContent(i))     # fill th2 cf histo with variation
 
     def GenSyst(self):
         for i in range(1, self._xbins + 1):
@@ -340,13 +338,10 @@ class Systematics():
             dev = cf_proj.GetStdDev()
             self._dev.SetBinContent(i, dev)
             cont_def = self._cf.GetBinContent(i)
-            for j in range(Systematics.ybins):
-                var_min = cf_proj.GetBinCenter(cf_proj.FindFirstBinAbove(0))
-                var_max = cf_proj.GetBinCenter(cf_proj.FindLastBinAbove(0))
-                #self._dif.Fill(cf_proj.GetBinCenter(i), var_min)                # fill th2 with difference to default
-                #self._dif.Fill(cf_proj.GetBinCenter(i), var_max)                # fill th2 with difference to default
-                self._dif.SetBinContent(i, self._dif.GetYaxis().FindBin(var_min), 1)
-                self._dif.SetBinContent(i, self._dif.GetYaxis().FindBin(var_max), 1)
+            var_min = cf_proj.GetBinCenter(cf_proj.FindFirstBinAbove(0))
+            var_max = cf_proj.GetBinCenter(cf_proj.FindLastBinAbove(0))
+            self._dif.SetBinContent(i, self._dif.GetYaxis().FindBin(var_min), 1)
+            self._dif.SetBinContent(i, self._dif.GetYaxis().FindBin(var_max), 1)
             dif_proj = self._dif.ProjectionY("diff xbin" + str(i), i, i)
             proj_min = dif_proj.GetBinCenter(dif_proj.FindFirstBinAbove(0))     # minimum value of difference
             proj_max = dif_proj.GetBinCenter(dif_proj.FindLastBinAbove(0))      # maximum value of difference
