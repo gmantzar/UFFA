@@ -78,10 +78,17 @@ class FileReader:
             histo = self._get_obj(histo_name)
         else:
             histo = self._get_obj(dir_name + '/' + histo_name)
+<<<<<<< HEAD
         if not histo:
             return None
 
         histo.SetDirectory(0)
+=======
+        if histo == None:
+            return None 
+        elif not ( isinstance(histo, ROOT.TF1) or isinstance(histo, ROOT.TGraphAsymmErrors) or isinstance(histo, ROOT.TGraphErrors) or isinstance(histo, ROOT.TGraph) ):
+            histo.SetDirectory(0)
+>>>>>>> 05b7792 (State of the code during preliminaries)
         return histo
 
     def GetHisto(self, histo_name, dir_name = None):
