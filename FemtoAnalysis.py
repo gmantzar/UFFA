@@ -730,7 +730,7 @@ def getIntegrated(iSE, iME, htype, rebin, norm):
 # returns [se, me, me unweighted, se mult, me mult, me mult unweighted]
 def reweight(iSE, iME):
     se_k = iSE.ProjectionX("se_k")
-    me_k = iSE.ProjectionX("me_k")
+    me_k = iME.ProjectionX("me_k")
     se_int = se_k.Integral()
     me_int = me_k.Integral()
 
