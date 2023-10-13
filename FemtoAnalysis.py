@@ -7,16 +7,15 @@ import TemplateFit as TF
 
 def UFFA(settings):
     conf = config(settings)
-    match conf['function']:
-        case 'cf':
-            UFFA_cf(conf)
-        case 'tf':
-            UFFA_tf(conf)
-        case 'syst':
-            if conf['htype'] == 'mtmult':
-                UFFA_syst_3d(conf)
-            else:
-                UFFA_syst(conf)
+    if conf['function'] == 'cf':
+        UFFA_cf(conf)
+    elif conf['function'] == 'tf':
+        UFFA_tf(conf)
+    elif conf['function'] == 'syst':
+        if conf['htype'] == 'mtmult':
+            UFFA_syst_3d(conf)
+        else:
+            UFFA_syst(conf)
 
 # correlation function
 def UFFA_cf(settings):
@@ -443,7 +442,7 @@ class cf_handler():
                 histos_mc, histos_unw_mc = getIntegrated(self._se_mc, self._me_mc, self._htype, self._rebin, self._norm)
         elif self._atype == 'dif':      # differential analysis
             if self._htype == 'mtmult': # 3D differantial analysis
-                histos = getDifferential3D(self._se, self._me, self._diff3d, self._binsdiff3d, self._htype, self._bins, self._rebin, self._norm)
+                histos = getDifferential3D(self._se, self._me, self._diff3d, self._binsdiff3d, self._bins, self._rebin, self._norm)
             else:
                 histos = getDifferential(self._se, self._me, self._htype, self._bins, self._rebin, self._norm)
                 if self._mc:
@@ -518,7 +517,7 @@ class cf_handler():
     def get_cf_3d(self):
         cf_list = []
 
-        histos = getDifferential3D(self._se, self._me, self._diff3d, self._binsdiff3d, self._htype, self._bins, self._rebin, self._norm)
+        histos = getDifferential3D(self._se, self._me, self._diff3d, self._binsdiff3d, self._bins, self._rebin, self._norm)
         histos = histos[1:]     # remove TH3 histos
         for n, bin1 in enumerate(histos):
             cf_list.append([])
@@ -535,7 +534,7 @@ class cf_handler():
     def get_se_3d(self):
         se_list = []
 
-        histos = getDifferential3D(self._se, self._me, self._diff3d, self._binsdiff3d, self._htype, self._bins, self._rebin, self._norm)
+        histos = getDifferential3D(self._se, self._me, self._diff3d, self._binsdiff3d, self._bins, self._rebin, self._norm)
         histos = histos[1:]     # remove TH3 histos
         for n, bin1 in enumerate(histos):
             se_list.append([])
@@ -647,7 +646,7 @@ def getDifferential(iSE, iME, htype, bins, rebin, norm, title = None):
     for n, [name, se, me] in enumerate(mt_histos, 1):
         histos.append(getCorrelation(se, me, name, conf + name, norm))
         histos[n].append([])
-        if rebin:       # append a list of rebinned [se, me, cf] in the original [se, me, cf]
+        if rebin:       # append a list of rebinned [se, me, cf] in the original [se, me, cf, []]
             for factor in rebin:
                 se_rebin = rebin_hist(se, factor)
                 me_rebin = rebin_hist(me, factor)
@@ -656,7 +655,7 @@ def getDifferential(iSE, iME, htype, bins, rebin, norm, title = None):
     return histos
 
 # [[iSE, iME], [[1st proj SE, 1st proj ME], [se, me, cf, [rebin], [bin 2 [rebin]]]], ...]
-def getDifferential3D(iSE, iME, diff3d, binsdiff3d, htype, bins, rebin, norm):
+def getDifferential3D(iSE, iME, diff3d, binsdiff3d, bins, rebin, norm):
     histos = []
     histos.append([iSE.Clone("SE kmTmult"), iME.Clone("ME kmTmult")])
 
@@ -670,6 +669,18 @@ def getDifferential3D(iSE, iME, diff3d, binsdiff3d, htype, bins, rebin, norm):
 
     for title, se, me in diff3d_histos:
         histos.append(getDifferential(se, me, htypeSplit2, bins, rebin, norm, title))
+
+    return histos
+
+# [[iSE, iME], [[1st proj SE, 1st proj ME], [se, me, cf, [rebin], [bin 2 [rebin]]]], ...]
+def getDiffReweight3D(iSE, iME, bins3d, bins2d, rebin, norm):
+    histos = []
+    histos.append([iSE.Clone("SE kmTmult"), iME.Clone("ME kmTmult")])
+
+    diff3d_histos = reweight3D(iSE, iME, bins3d)
+
+    for title, se, me in diff3d_histos:
+        histos.append(getDifferential(se, me, "kmult", bins2d, rebin, norm, title))
 
     return histos
 
@@ -729,6 +740,9 @@ def getIntegrated(iSE, iME, htype, rebin, norm):
 # projects and reweights se and me from kmult histos
 # returns [se, me, me unweighted, se mult, me mult, me mult unweighted]
 def reweight(iSE, iME):
+    me = iME.Clone("ME kmult reweighted")
+    me.Reset("ICESM")
+
     se_k = iSE.ProjectionX("se_k")
     me_k = iME.ProjectionX("me_k")
     se_int = se_k.Integral()
@@ -743,19 +757,34 @@ def reweight(iSE, iME):
     me_k.Reset("ICESM")
     me_mult.Reset("ICESM")
 
-    for n in range(iSE.GetNbinsY()):
-        se_n = iSE.ProjectionX("se_bin", n, n)
-        me_n = iME.ProjectionX("me_bin", n, n)
+    # loop for the projection of each multiplicity slice
+    for ybin in range(iSE.GetNbinsY()):
+        se_n = iSE.ProjectionX("se_bin", ybin, ybin)
+        me_n = iME.ProjectionX("me_bin", ybin, ybin)
 
         se_ratio = se_n.Integral() / se_int
         me_ratio = me_n.Integral() / me_int
 
         if me_ratio > 0. and se_ratio > 0.:
             me_n.Scale(se_ratio / me_ratio)
-            me_mult.SetBinContent(n, me_n.Integral())
+            me_mult.SetBinContent(ybin, me_n.Integral())
             me_k.Add(me_n)
+            for xbin in iSE.GetNbinsX():        # fill th2 reweighted ME
+                me.Fill(me_n.GetBinCenter(xbin), me_n.GetBinContent(xbin))
 
-    return [se_k, me_k, me_k_unw, se_mult, me_mult, me_mult_unw]
+
+    return [se_k, me_k, me_k_unw, se_mult, me_mult, me_mult_unw, me]
+
+# split th3 in mt range and reweight each slice in multiplicity
+# output: [name, mult-k SE, reweighted mult-k ME]
+def reweight3D(iSE, iME, limits):
+    histos = getBinRangeHistos3D(iSE, iME, "mt", limits)        # split th3 in mt and get a list of mult-k histos
+    out = []
+
+    for hist in histos:
+        out.append([hist[0], hist[1], reweight(hist[1], hist[2])[6].Clone(hist[0])])        # append the reweighted th2 ME distribution
+
+    return out
 
 # returns rebinned copy of histo
 def rebin_hist(input_histo, binning):
