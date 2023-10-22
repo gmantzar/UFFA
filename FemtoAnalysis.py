@@ -417,7 +417,7 @@ class cf_handler():
             self._me = me.Project3D("yx").Clone()
             if self._mc:
                 self._se_mc, self._me_mc = self._file.get_kmt_mc()
-        elif self._htype == 'mtmult':
+        elif self._htype in ['mtmult', 'rew3d']:
             self._se, self._me = self._file.get_kmtmult()
             if self._mc:
                 self._se_mc, self._me_mc = self._file.get_kmtmult_mc()
@@ -443,6 +443,8 @@ class cf_handler():
         elif self._atype == 'dif':      # differential analysis
             if self._htype == 'mtmult': # 3D differantial analysis
                 histos = getDifferential3D(self._se, self._me, self._diff3d, self._binsdiff3d, self._bins, self._rebin, self._norm)
+            elif self._htype == 'rew3d':
+                histos = getDiffReweight3D(self._se, self._me, self._binsdiff3d, self._bins, self._rebin, self._norm)
             else:
                 histos = getDifferential(self._se, self._me, self._htype, self._bins, self._rebin, self._norm)
                 if self._mc:
@@ -678,9 +680,10 @@ def getDiffReweight3D(iSE, iME, bins3d, bins2d, rebin, norm):
     histos.append([iSE.Clone("SE kmTmult"), iME.Clone("ME kmTmult")])
 
     diff3d_histos = reweight3D(iSE, iME, bins3d)
+    print(diff3d_histos)
 
     for title, se, me in diff3d_histos:
-        histos.append(getDifferential(se, me, "kmult", bins2d, rebin, norm, title))
+        histos.append(getDifferential(se, me, "mult", bins2d, rebin, norm, title))
 
     return histos
 
@@ -769,14 +772,14 @@ def reweight(iSE, iME):
             me_n.Scale(se_ratio / me_ratio)
             me_mult.SetBinContent(ybin, me_n.Integral())
             me_k.Add(me_n)
-            for xbin in iSE.GetNbinsX():        # fill th2 reweighted ME
+            for xbin in range(iSE.GetNbinsX()):        # fill th2 reweighted ME
                 me.Fill(me_n.GetBinCenter(xbin), me_n.GetBinContent(xbin))
 
 
     return [se_k, me_k, me_k_unw, se_mult, me_mult, me_mult_unw, me]
 
 # split th3 in mt range and reweight each slice in multiplicity
-# output: [name, mult-k SE, reweighted mult-k ME]
+# output: [[name, mult-k SE, reweighted mult-k ME], [bin 2], ...]
 def reweight3D(iSE, iME, limits):
     histos = getBinRangeHistos3D(iSE, iME, "mt", limits)        # split th3 in mt and get a list of mult-k histos
     out = []
@@ -840,9 +843,11 @@ def config(dic_conf):
     keys_k      = ['k', 'kstar']
     keys_mult   = ['mult', 'kmult']
     keys_mult3d = ['mult3d', 'kmult3d']
+    keys_rew3d  = ['rew3d', 'rewmult']
     keys_mt     = ['mt', 'kmt']
     keys_mt3d   = ['mt3d', 'kmt3d']
     keys_mtmult = ['mtmult','kmtmult']
+
     keys_int    = ['int', 'integrated']
     keys_dif    = ['diff', 'dif', 'differential']
 
@@ -921,6 +926,8 @@ def config(dic_conf):
             dic['htype'] = 'mult'
         elif htype in keys_mult3d:
             dic['htype'] = 'mult3d'
+        elif htype in keys_rew3d:
+            dic['htype'] = 'rew3d'
         elif htype in keys_mt:
             dic['htype'] = 'mt'
         elif htype in keys_mt3d:

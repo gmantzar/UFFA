@@ -124,7 +124,7 @@ class FemtoDreamSaver(FS.FileSaver):
                 self.writeInDir(dir_root, "Tracks_one_MC", hist_track_mc)
                 hist_pur.Write()
         elif self._atype == 'dif':                      # differential
-            if self._htype == 'mtmult':                 # 3D histogramms
+            if self._htype in ['mtmult', 'rew3d']:                 # 3D histogramms
                 self.write(hist_in)                                   # [iSE, iME]
                 for n in range(len(self._binsdiff3d) - 1):            # list: [1, 2, 3, 4] -> ranges: [1-2, 2-3, 3-4]
                     dir_bindiff3d = dir_root.mkdir("bin "+str(self._diff3d)+": " + str(n + 1))
