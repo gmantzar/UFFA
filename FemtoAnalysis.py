@@ -680,7 +680,6 @@ def getDiffReweight3D(iSE, iME, bins3d, bins2d, rebin, norm):
     histos.append([iSE.Clone("SE kmTmult"), iME.Clone("ME kmTmult")])
 
     diff3d_histos = reweight3D(iSE, iME, bins3d)
-    print(diff3d_histos)
 
     for title, se, me in diff3d_histos:
         histos.append(getDifferential(se, me, "mult", bins2d, rebin, norm, title))
@@ -745,6 +744,7 @@ def getIntegrated(iSE, iME, htype, rebin, norm):
 def reweight(iSE, iME):
     me = iME.Clone("ME kmult reweighted")
     me.Reset("ICESM")
+    me_axis = me.GetYaxis()
 
     se_k = iSE.ProjectionX("se_k")
     me_k = iME.ProjectionX("me_k")
@@ -761,7 +761,7 @@ def reweight(iSE, iME):
     me_mult.Reset("ICESM")
 
     # loop for the projection of each multiplicity slice
-    for ybin in range(iSE.GetNbinsY()):
+    for ybin in range(1, iSE.GetNbinsY() + 1):
         se_n = iSE.ProjectionX("se_bin", ybin, ybin)
         me_n = iME.ProjectionX("me_bin", ybin, ybin)
 
@@ -772,8 +772,10 @@ def reweight(iSE, iME):
             me_n.Scale(se_ratio / me_ratio)
             me_mult.SetBinContent(ybin, me_n.Integral())
             me_k.Add(me_n)
-            for xbin in range(iSE.GetNbinsX()):        # fill th2 reweighted ME
-                me.Fill(me_n.GetBinCenter(xbin), me_n.GetBinContent(xbin))
+            for xbin in range(1, me_n.GetNbinsX() + 1):        # fill th2 reweighted ME
+                #me.Fill(me_n.GetBinContent(xbin), me_axis.GetBinCenter(ybin))
+                #me.Fill(me_axis.GetBinCenter(ybin), me_n.GetBinContent(xbin))
+                me.SetBinContent(xbin, ybin, me_n.GetBinContent(xbin))
 
 
     return [se_k, me_k, me_k_unw, se_mult, me_mult, me_mult_unw, me]
