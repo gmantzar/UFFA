@@ -22,7 +22,7 @@ class FemtoDreamSaver(FS.FileSaver):
         self._mc    = settings['mc']                # bool monte carlo data
         self._bins  = settings['bins']              # bin range for differential
         self._diff3d = settings['diff3d']
-        self._binsdiff3d = settings['binsdiff3d']
+        self._bins3d = settings['bins3d']
         self._rebin = settings['rebin']             # rebin factors for all se, me, cf plots
         self._debug = settings['debug']
         FS.FileSaver.setDebug(self._debug)
@@ -126,7 +126,7 @@ class FemtoDreamSaver(FS.FileSaver):
         elif self._atype == 'dif':                      # differential
             if self._htype in ['mtmult', 'rew3d']:                 # 3D histogramms
                 self.write(hist_in)                                   # [iSE, iME]
-                for n in range(len(self._binsdiff3d) - 1):            # list: [1, 2, 3, 4] -> ranges: [1-2, 2-3, 3-4]
+                for n in range(len(self._bins3d) - 1):            # list: [1, 2, 3, 4] -> ranges: [1-2, 2-3, 3-4]
                     dir_bindiff3d = dir_root.mkdir("bin "+str(self._diff3d)+": " + str(n + 1))
                     dir_bindiff3d.cd()
 
