@@ -80,7 +80,6 @@ class FileReader:
             histo = self._get_obj(dir_name + '/' + histo_name)
         if not histo:
             return None
-
         histo.SetDirectory(0)
         return histo
 
@@ -90,14 +89,19 @@ class FileReader:
             histo = self._get_obj(histo_name)
         else:
             histo = self._get_obj(dir_name + '/' + histo_name)
+        if not histo:
+            return None
         histo.SetDirectory(0)
         return histo
 
     # function to retrieve all histograms in a directory as a list
     def get_histos(self, dir_name = None):
         if dir_name:
-            dir_name = FU.path_fix(dir_name)             # fix the path
-            directory = self._get_obj(dir_name)             # set directory
+            new_name = FU.path_fix(dir_name)             # fix the path
+            directory = self._get_obj(new_name)             # set directory
+            if not directory:
+                print("Directory \"" + dir_name + "\" not found!")
+                return
         else:
             directory = self._wdir                          # find in current directory
         histos = []
@@ -122,8 +126,11 @@ class FileReader:
 
     def GetHistos(self, dir_name = None):
         if dir_name:
-            dir_name = FU.path_fix(dir_name)             # fix the path
-            directory = self._get_obj(dir_name)             # set directory
+            new_name = FU.path_fix(dir_name)             # fix the path
+            directory = self._get_obj(new_name)             # set directory
+            if not directory:
+                print("Directory \"" + dir_name + "\" not found!")
+                return
         else:
             directory = self._wdir                          # find in current directory
         histos = []

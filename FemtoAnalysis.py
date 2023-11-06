@@ -381,6 +381,8 @@ class cf_handler():
         self._binsdiff3d = conf['binsdiff3d']   # bin range for the first differential split in case of a 3D analysis
         self._rebin = conf['rebin']             # rebin factors for all se, me, cf plots
         self._norm  = conf['normalize']         # normalization range
+        self._name_se = conf['nameSE']
+        self._name_me = conf['nameME']
         self._se = None
         self._me = None
         self._se_mc = None
@@ -393,7 +395,10 @@ class cf_handler():
 
     # retrieves histos from the provided file reader
     def _get_histos(self):
-        if self._htype == 'k':        # TH1 kstar
+        if self._name_se and self._name_me:
+            self._se = self._file.get_histo(self._name_se)
+            self._me = self._file.get_histo(self._name_me)
+        elif self._htype == 'k':        # TH1 kstar
             self._se, self._me = self._file.get_kstar()
             if self._mc:
                 self._se_mc, self._me_mc = self._file.get_kstar_mc()
@@ -421,6 +426,12 @@ class cf_handler():
             self._se, self._me = self._file.get_kmtmult()
             if self._mc:
                 self._se_mc, self._me_mc = self._file.get_kmtmult_mc()
+
+        if self._name_se and not self._name_me:
+            self._se = self._file.get_histo(self._name_se)
+        if self._name_me and not self._name_se:
+            self._me = self._file.get_histo(self._name_me)
+
         self._event = self._file.get_event()
         self._tracks = self._file.get_tracks()
         if self._mc:
@@ -817,6 +828,8 @@ def config(dic_conf):
             "file":         None,
             "fullpath":     None,
             "fileTDir":     "",
+            "nameSE":       "",
+            "nameME":       "",
             "newfile":      None,
             "mc":           None,
             "mcTDir":       "",
@@ -878,12 +891,7 @@ def config(dic_conf):
 
     # file TDir/TList
     if 'fileTDir' in dic_conf:
-        if dic_conf['fileTDir'] == "":
-            dic['fileTDir'] = "femto-dream-pair-task-track-track"
-        elif dic_conf['fileTDir'][0] == '_':
-            dic['fileTDir'] = "femto-dream-pair-task-track-track" + dic_conf['fileTDir']
-        else:
-            dic['fileTDir'] = dic_conf['fileTDir']
+        dic['fileTDir'] = dic_conf['fileTDir']
 
     if 'outDir' in dic_conf:
         if dic_conf['outDir'] != "" and dic_conf['outDir']:
@@ -893,6 +901,12 @@ def config(dic_conf):
                 exit()
     else:
         dic['outDir'] = dic['path']
+
+    # name for se and me plot
+    if 'nameSE' in dic_conf:
+        dic['nameSE'] = dic_conf['nameSE']
+    if 'nameSE' in dic_conf:
+        dic['nameSE'] = dic_conf['nameSE']
 
     # rename output file
     if 'rename' in dic_conf:
