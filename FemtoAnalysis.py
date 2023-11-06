@@ -432,11 +432,12 @@ class cf_handler():
         if self._name_me and not self._name_se:
             self._me = self._file.get_histo(self._name_me)
 
-        self._event = self._file.get_event()
-        self._tracks = self._file.get_tracks()
         if self._mc:
             self._tracks_mc = self._file.get_tracks_mc()
-        if self._pair == 'pl':
+        if self._pair == 'pp':
+            self._event = self._file.get_event()
+            self._tracks = self._file.get_tracks()
+        elif self._pair == 'pl':
             self._v0 = self._file.get_v0()
 
     # computes the cf for integrated or differential analysis and for mc data
