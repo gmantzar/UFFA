@@ -9,6 +9,7 @@ class FileReader:
             self._ifile = ROOT.TFile(ifile, "read")
         else:
             print("File \"" + ifile + "\" not found!")
+            return
         self._tree  = [self._ifile]
         self._wdir  = self._ifile
         if directory:
