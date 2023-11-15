@@ -71,6 +71,17 @@ class FileReader:
                 return None
         return obj
 
+    def _set_dir(self, obj):
+        classes = [ROOT.TTree.Class(),
+                   ROOT.TChain.Class(),
+                   ROOT.TEventList.Class(),
+                   ROOT.TEntryList.Class(),
+                   ROOT.TGraph2D.Class()]
+        if obj.InheritsFrom(ROOT.TH1.Class()):
+            obj.SetDirectory(0)
+        elif obj.Class() in classes:
+            obj.SetDirectory(0)
+
     # retrieves a histogram by name in the current directory
     # or if given, from the full path or a subdirectory
     def get_histo(self, histo_name, dir_name = None):
@@ -92,7 +103,7 @@ class FileReader:
             histo = self._get_obj(dir_name + '/' + histo_name)
         if not histo:
             return None
-        histo.SetDirectory(0)
+        self._set_dir(histo)
         return histo
 
     # function to retrieve all histograms in a directory as a list
@@ -122,7 +133,7 @@ class FileReader:
                 histos.append(obj)
             lnk = lnk.Next()
         for hist in histos:
-            hist.SetDirectory(0)
+            self._set_dir(hist)
         return histos
 
     def GetHistos(self, dir_name = None):
@@ -151,7 +162,7 @@ class FileReader:
                 histos.append(obj)
             lnk = lnk.Next()
         for hist in histos:
-            hist.SetDirectory(0)
+            self._set_dir(hist)
         return histos
 
     # function to retrieve a full directory as [name, [content]]
@@ -186,7 +197,7 @@ class FileReader:
                     or obj.Class() == ROOT.TList.Class():
                         content[1].append(self.get_full_dir(obj.GetName()))
             else:
-                obj.SetDirectory(0)
+                self._set_dir(obj)
                 content[1].append(obj)
             # next entry
             lnk = lnk.Next()
