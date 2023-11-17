@@ -381,6 +381,7 @@ class cf_handler():
         self._bins3d = conf['bins3d']   # bin range for the first differential split in case of a 3D analysis
         self._rebin = conf['rebin']             # rebin factors for all se, me, cf plots
         self._norm  = conf['normalize']         # normalization range
+        self._rew_range = conf['rewrange']      # reweighting range
         self._name_se = conf['nameSE']
         self._name_me = conf['nameME']
         self._se = None
@@ -449,14 +450,14 @@ class cf_handler():
         histos_unw = []
         histos_unw_mc = []
         if self._atype == 'int':        # integrated analysis
-            histos, histos_unw = getIntegrated(self._se, self._me, self._htype, self._rebin, self._norm)
+            histos, histos_unw = getIntegrated(self._se, self._me, self._htype, self._rebin, self._norm, self._rew_range)
             if self._mc:
-                histos_mc, histos_unw_mc = getIntegrated(self._se_mc, self._me_mc, self._htype, self._rebin, self._norm)
+                histos_mc, histos_unw_mc = getIntegrated(self._se_mc, self._me_mc, self._htype, self._rebin, self._norm, self._rew_range)
         elif self._atype == 'dif':      # differential analysis
             if self._htype == 'mtmult': # 3D differantial analysis
                 histos = getDifferential3D(self._se, self._me, self._diff3d, self._bins3d, self._bins, self._rebin, self._norm)
             elif self._htype == 'rew3d':
-                histos = getDiffReweight3D(self._se, self._me, self._bins3d, self._bins, self._rebin, self._norm)
+                histos = getDiffReweight3D(self._se, self._me, self._bins3d, self._bins, self._rebin, self._norm, self._rew_range)
             else:
                 histos = getDifferential(self._se, self._me, self._htype, self._bins, self._rebin, self._norm)
                 if self._mc:
@@ -713,7 +714,7 @@ def getDifferential3D(iSE, iME, diff3d, bins3d, bins, rebin, norm):
     return histos
 
 # [[iSE, iME], [[1st proj SE, 1st proj ME], [se, me, cf, [rebin], [bin 2 [rebin]]]], ...]
-def getDiffReweight3D(iSE, iME, bins3d, bins, rebin, norm):
+def getDiffReweight3D(iSE, iME, bins3d, bins, rebin, norm, rew_range):
     """
     This function takes as input 3D mult-mt-k* plots
     and splits them first in mt according to the limits defined in 'bins3d'.
@@ -728,7 +729,7 @@ def getDiffReweight3D(iSE, iME, bins3d, bins, rebin, norm):
     histos = []
     histos.append([iSE.Clone("SE kmTmult"), iME.Clone("ME kmTmult")])
 
-    diff3d_histos = reweight3D(iSE, iME, bins3d)
+    diff3d_histos = reweight3D(iSE, iME, bins3d, rew_range)
 
     for title, se, me in diff3d_histos:
         histos.append(getDifferential(se, me, "mult", bins, rebin, norm, title))
@@ -738,7 +739,7 @@ def getDiffReweight3D(iSE, iME, bins3d, bins, rebin, norm):
 # returns a list of [[iSE, iME], [se, me, cf]] for rel pair k* input
 # or reweights and returns ([[iSE, iME], [se, me, cf, [rebin]]], [me_unw, cf_unw, [rebin]]) for kmult
 # and [[iSE, iME], [se, me, cf, [rebin]]] for kmT
-def getIntegrated(iSE, iME, htype, rebin, norm):
+def getIntegrated(iSE, iME, htype, rebin, norm, rew_range):
     histos = []
     histos_unw = []
     if htype == 'k':      # k* input
@@ -747,7 +748,7 @@ def getIntegrated(iSE, iME, htype, rebin, norm):
         me = iME
     elif htype == 'mult':    # kmult input
         histos.append([iSE.Clone("SE kmult"), iME.Clone("ME kmult")])
-        hReweight = reweight(iSE, iME)
+        hReweight = reweight(iSE, iME, rew_range)
         se          = hReweight[0]
         me          = hReweight[1]
         me_unw      = hReweight[2]
@@ -759,7 +760,7 @@ def getIntegrated(iSE, iME, htype, rebin, norm):
         histos[0].append(me_mult_unw.Clone("ME mult unw"))
     elif htype == 'mt':    # kmT input
         histos.append([iSE.Clone("SE kmT"), iME.Clone("ME kmT")])
-        hReweight = reweight(iSE, iME)
+        hReweight = reweight(iSE, iME, rew_range)
         se = hReweight[0]
         me = hReweight[2]   # unweighted me, i.e. normal me projection of the kmT histo
 
@@ -790,7 +791,7 @@ def getIntegrated(iSE, iME, htype, rebin, norm):
 
 # projects and reweights se and me from kmult histos
 # returns [se, me, me unweighted, se mult, me mult, me mult unweighted]
-def reweight(iSE, iME):
+def reweight(iSE, iME, rew_range):
     """
     This function takes as input a 2D mt/mult vs k* SE and ME distribution
     and reweights the ME distribution in each bin projection of mt/mult.
@@ -804,14 +805,23 @@ def reweight(iSE, iME):
         [5] ME 1D mt/mult reweighted
         [6] ME 1D mt/mult unweighted
     """
+
     me = iME.Clone("ME kmult reweighted")
     me.Reset("ICESM")
     me_axis = me.GetYaxis()
 
     se_k = iSE.ProjectionX("se_k")
     me_k = iME.ProjectionX("me_k")
-    se_int = se_k.Integral()
-    me_int = me_k.Integral()
+
+    if rew_range:
+        int_min = se_k.FindBin(rew_range[0])
+        int_max = se_k.FindBin(rew_range[1])
+    else:
+        int_min = 0
+        int_max = se_k.GetNbinsX()
+
+    se_int = se_k.Integral(int_min, int_max)
+    me_int = me_k.Integral(int_min, int_max)
 
     se_mult = iSE.ProjectionY("se_mult")
     me_mult = iME.ProjectionY("me_mult")
@@ -827,12 +837,12 @@ def reweight(iSE, iME):
         se_n = iSE.ProjectionX("se_bin", ybin, ybin)
         me_n = iME.ProjectionX("me_bin", ybin, ybin)
 
-        se_ratio = se_n.Integral() / se_int
-        me_ratio = me_n.Integral() / me_int
+        se_ratio = se_n.Integral(int_min, int_max) / se_int
+        me_ratio = me_n.Integral(int_min, int_max) / me_int
 
         if me_ratio > 0. and se_ratio > 0.:
             me_n.Scale(se_ratio / me_ratio)
-            me_mult.SetBinContent(ybin, me_n.Integral())
+            me_mult.SetBinContent(ybin, me_n.Integral(int_min, int_max))
             me_k.Add(me_n)
             for xbin in range(1, me_n.GetNbinsX() + 1):        # fill th2 reweighted ME
                 #me.Fill(me_n.GetBinContent(xbin), me_axis.GetBinCenter(ybin))
@@ -843,7 +853,7 @@ def reweight(iSE, iME):
 
 # split th3 in mt range and reweight each slice in multiplicity
 # output: [[name, mult-k SE, reweighted mult-k ME], [bin 2], ...]
-def reweight3D(iSE, iME, bins3d):
+def reweight3D(iSE, iME, bins3d, rew_range):
     """
     This function takes as input a 3D SE and ME distribution
     and splits them in mt by the provided binning.
@@ -856,7 +866,7 @@ def reweight3D(iSE, iME, bins3d):
     out = []
 
     for hist in histos:
-        out.append([hist[0], hist[1], reweight(hist[1], hist[2])[3].Clone(hist[0])])        # append the reweighted th2 ME distribution
+        out.append([hist[0], hist[1], reweight(hist[1], hist[2], rew_range)[3].Clone(hist[0])])        # append the reweighted th2 ME distribution
 
     return out
 
@@ -948,6 +958,7 @@ def config(dic_conf):
             "templates":    None,
             "namelist":     None,
             "fitrange":     None,
+            "rewrange":     None,
             "normalize":    None,
             "include":      None,
             "exclude":      None,
@@ -1115,6 +1126,12 @@ def config(dic_conf):
     # fitrange
     if 'fitrange' in dic_conf:
         dic['fitrange'] = dic_conf['fitrange']
+
+    # rewrange
+    if 'rewrange' in dic_conf:
+        if dic_conf['rewrange'] and type(dic_conf['rewrange']) != list:
+            print("'rewrange' accepts [min, max]!")
+        dic['rewrange'] = dic_conf['rewrange']
 
     # normalize cf in range
     if 'normalize' in dic_conf:
