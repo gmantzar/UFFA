@@ -14,7 +14,7 @@ class FileReader:
         self._wdir  = self._ifile
         if directory:
             directory = FU.path_fix(directory)
-            self._set_dir(directory)
+            self._set_wdir(directory)
 
     # find object in dir_obj
     def _find_obj(self, obj_name, dir_obj):
@@ -31,7 +31,7 @@ class FileReader:
         return obj
 
     # set directory
-    def _set_dir(self, dir_name):
+    def _set_wdir(self, dir_name):
         dir_name = FU.path_fix(dir_name)
         name_list = dir_name.rsplit('/')
         for name in name_list:
@@ -223,7 +223,7 @@ class FileReader:
                 self._tree = [self._ifile]              # reset working directory list
                 found = True
             else:
-                found = self._set_dir(dir_name)
+                found = self._set_wdir(dir_name)
 
         if FileReader.DEBUG:
             print("FileReader: cd(\"" + str(dir_name) + "\"): " + str(found))
