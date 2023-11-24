@@ -457,7 +457,7 @@ class cf_handler():
             if self._htype == 'mtmult': # 3D differantial analysis
                 histos = getDifferential3D(self._se, self._me, self._diff3d, self._bins3d, self._bins, self._rebin, self._norm)
             elif self._htype == 'rew3d':
-                histos = getDiffReweight3D(self._se, self._me, self._bins3d, self._bins, self._rebin, self._norm, self._rew_range)
+                histos, histos_unw = getDiffReweight3D(self._se, self._me, self._bins3d, self._bins, self._rebin, self._norm, self._rew_range)
             else:
                 histos = getDifferential(self._se, self._me, self._htype, self._bins, self._rebin, self._norm)
                 if self._mc:
@@ -729,12 +729,14 @@ def getDiffReweight3D(iSE, iME, bins3d, bins, rebin, norm, rew_range):
     histos = []
     histos.append([iSE.Clone("SE kmTmult"), iME.Clone("ME kmTmult")])
 
-    diff3d_histos = reweight3D(iSE, iME, bins3d, rew_range)
+    histos_unw = getDifferential3D(iSE, iME, "mt", bins3d, bins, rebin, norm)
 
-    for title, se, me in diff3d_histos:
+    histos_diff3d = reweight3D(iSE, iME, bins3d, rew_range)
+
+    for title, se, me in histos_diff3d:
         histos.append(getDifferential(se, me, "mult", bins, rebin, norm, title))
 
-    return histos
+    return histos, histos_unw
 
 # returns a list of [[iSE, iME], [se, me, cf]] for rel pair k* input
 # or reweights and returns ([[iSE, iME], [se, me, cf, [rebin]]], [me_unw, cf_unw, [rebin]]) for kmult

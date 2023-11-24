@@ -66,9 +66,11 @@ class FemtoDreamSaver(FS.FileSaver):
             hist_in_mc  = hist_std_mc[0]    # [iSE, iME] <- MC
             hist_smc_mc = hist_std_mc[1:]   # [[se, me, cf, [rebin]], ...] <- MC
         if self._htype == 'mult':
-            hist_unw = self._histos[1]      # [me unw, cf unw, [rebin]]
+            hist_unw = self._histos[1]
             if self._mc:
                 hist_unw_mc = self._histos[3]
+        if self._htype == 'rew3d':
+            hist_unw_smc = self._histos[1][1:]
 
         hist_event = self._histos[4]
         hist_track = self._histos[5]
@@ -133,15 +135,18 @@ class FemtoDreamSaver(FS.FileSaver):
                     self.write(hist_smc[n][0])                        # 2D projection in the first bin of the 3D histogram
                     for nm in range(1, len(self._bins)):
                         dir_bin = dir_bindiff3d.mkdir("bin: " + str(nm))
-                        dir_bin.cd()
-                        self.write(hist_smc[n][nm][:3])             # [[se, me, cf, [rebins]], ...]
-                                                                    #   ^^^^^^^^^^^
-                        if self._rebin:                             # rebin directories inside each mt/mult bin directory
+                        dir_bin.cd()                                # [[se, me, cf, [rebins]], ...]
+                        self.write(hist_smc[n][nm][:3])             #   ^^  ^^  ^^
+                                                                    #  rebin directories inside each mt/mult bin directory
+                        hist_unw_smc[n][nm][1].Write("ME_unw")
+                        hist_unw_smc[n][nm][2].Write("CF_unw")
+                        if self._rebin:
                             for m in range(len(self._rebin)):
                                 dir_rebin = dir_bin.mkdir("rebin: " + str(self._rebin[m]))
                                 dir_rebin.cd()
                                 self.write(hist_smc[n][nm][3][m])   # [[se, me, cf, [rebins]], ...]
-                                                                    #               ^^^^^^^^
+                                hist_unw_smc[n][nm][3][m][1].Write("ME_unw")
+                                hist_unw_smc[n][nm][3][m][2].Write("CF_unw")
                                 dir_bin.cd()
                                 del dir_rebin
                         dir_bindiff3d.cd()
