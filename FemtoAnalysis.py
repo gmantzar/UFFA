@@ -1057,6 +1057,7 @@ def config(dic_conf):
             dic['htype'] = 'mult3d'
         elif htype in keys_rew3d:
             dic['htype'] = 'rew3d'
+            dic['diff3d'] = 'mt'
         elif htype in keys_mt:
             dic['htype'] = 'mt'
         elif htype in keys_mt3d:

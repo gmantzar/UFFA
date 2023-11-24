@@ -133,6 +133,8 @@ class FemtoDreamSaver(FS.FileSaver):
                     dir_bindiff3d.cd()
 
                     self.write(hist_smc[n][0])                        # 2D projection in the first bin of the 3D histogram
+                    if self._htype == 'rew3d':
+                        hist_unw_smc[n][0][1].Write("ME kmult unw")
                     for nm in range(1, len(self._bins)):
                         dir_bin = dir_bindiff3d.mkdir("bin: " + str(nm))
                         dir_bin.cd()                                # [[se, me, cf, [rebins]], ...]
