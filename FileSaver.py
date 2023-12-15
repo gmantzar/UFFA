@@ -36,6 +36,8 @@ class FileSaver():
 
     # make directory in dir_root with name dir_name and save all histos from the list 'objects'
     def writeInDir(self, dir_root, dir_name, objects):
+        if not objects:
+            return
         dir_new = dir_root.mkdir(dir_name)
         dir_new.cd()
         try:
