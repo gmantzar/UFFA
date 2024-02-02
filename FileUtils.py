@@ -26,8 +26,8 @@ def file_exists(file):
     if not ROOT.gSystem.AccessPathName(file):
         name, ext = file.rsplit('.')
         digit = 1
-        while not ROOT.gSystem.AccessPathName(name + '-' + str(digit) + '.' + ext):
+        while not ROOT.gSystem.AccessPathName(name + '_' + str(digit) + '.' + ext):
             digit += 1
-        file = name + '-' + str(digit) + '.' + ext
+        file = name + '_' + str(digit) + '.' + ext
     return file
 
