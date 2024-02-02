@@ -44,7 +44,7 @@ class FileReader:
                 if FileReader.DEBUG:
                     print("\n\tDirectory \"" + name + "\" not found!\n")
                     self.ls()
-                return None
+                return False
             self._tree.append(dir_new)                              # append dir to dir path
             self._wdir = dir_new
             if dir_new.Class() == ROOT.TList.Class():
@@ -92,7 +92,7 @@ class FileReader:
             histo = self._get_obj(dir_name + '/' + histo_name)
         if not histo:
             return None
-        histo.SetDirectory(0)
+        histo._set_dir(histo)
         return histo
 
     def GetHisto(self, histo_name, dir_name = None):
@@ -142,7 +142,7 @@ class FileReader:
             directory = self._get_obj(new_name)             # set directory
             if not directory:
                 print("Directory \"" + dir_name + "\" not found!")
-                return
+                return None
         else:
             directory = self._wdir                          # find in current directory
         histos = []

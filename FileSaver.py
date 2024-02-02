@@ -13,6 +13,8 @@ class FileSaver():
 
     # make file and if "new" option is passed, create new file and rename if file already exists
     def touch(self, name, option = None):
+        if name[-5:] != '.root':
+            name += '.root'
         name = FU.path_expand(name)
         if not option or option == 'new':
             name = FU.file_exists(name)

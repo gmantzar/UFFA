@@ -69,7 +69,7 @@ class FemtoDreamSaver(FS.FileSaver):
             hist_unw = self._histos[1]
             if self._mc:
                 hist_unw_mc = self._histos[3]
-        if self._htype == 'rew3d':
+        if self._htype in ['rew3d', 'rew4d']:
             hist_unw_smc = self._histos[1][1:]
 
         hist_event = self._histos[4]
@@ -126,29 +126,31 @@ class FemtoDreamSaver(FS.FileSaver):
                 self.writeInDir(dir_root, "Tracks_one_MC", hist_track_mc)
                 hist_pur.Write()
         elif self._atype == 'dif':                      # differential
-            if self._htype in ['mtmult', 'rew3d']:                 # 3D histogramms
+            if self._htype in ['mtmult', 'rew3d', '4d', 'rew4d']:                 # 3D histogramms
                 self.write(hist_in)                                   # [iSE, iME]
                 for n in range(len(self._bins3d) - 1):            # list: [1, 2, 3, 4] -> ranges: [1-2, 2-3, 3-4]
                     dir_bindiff3d = dir_root.mkdir("bin "+str(self._diff3d)+": " + str(n + 1))
                     dir_bindiff3d.cd()
 
                     self.write(hist_smc[n][0])                        # 2D projection in the first bin of the 3D histogram
-                    if self._htype == 'rew3d':
+                    if self._htype in ['rew3d', 'rew4d']:
                         hist_unw_smc[n][0][1].Write("ME kmult unw")
                     for nm in range(1, len(self._bins)):
                         dir_bin = dir_bindiff3d.mkdir("bin: " + str(nm))
                         dir_bin.cd()                                # [[se, me, cf, [rebins]], ...]
                         self.write(hist_smc[n][nm][:3])             #   ^^  ^^  ^^
                                                                     #  rebin directories inside each mt/mult bin directory
-                        hist_unw_smc[n][nm][1].Write("ME_unw")
-                        hist_unw_smc[n][nm][2].Write("CF_unw")
+                        if self._htype in ['rew3d', 'rew4d']:
+                            hist_unw_smc[n][nm][1].Write("ME_unw")
+                            hist_unw_smc[n][nm][2].Write("CF_unw")
                         if self._rebin:
                             for m in range(len(self._rebin)):
                                 dir_rebin = dir_bin.mkdir("rebin: " + str(self._rebin[m]))
                                 dir_rebin.cd()
                                 self.write(hist_smc[n][nm][3][m])   # [[se, me, cf, [rebins]], ...]
-                                hist_unw_smc[n][nm][3][m][1].Write("ME_unw")
-                                hist_unw_smc[n][nm][3][m][2].Write("CF_unw")
+                                if self._htype in ['rew3d', 'rew4d']:
+                                    hist_unw_smc[n][nm][3][m][1].Write("ME_unw")
+                                    hist_unw_smc[n][nm][3][m][2].Write("CF_unw")
                                 dir_bin.cd()
                                 del dir_rebin
                         dir_bindiff3d.cd()

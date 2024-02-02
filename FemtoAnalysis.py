@@ -381,6 +381,7 @@ class cf_handler():
         self._bins3d = conf['bins3d']   # bin range for the first differential split in case of a 3D analysis
         self._rebin = conf['rebin']             # rebin factors for all se, me, cf plots
         self._norm  = conf['normalize']         # normalization range
+        self._perc  = conf['percentile']        # percentile range
         self._rew_range = conf['rewrange']      # reweighting range
         self._name_se = conf['nameSE']
         self._name_me = conf['nameME']
@@ -427,6 +428,8 @@ class cf_handler():
             self._se, self._me = self._file.get_kmtmult()
             if self._mc:
                 self._se_mc, self._me_mc = self._file.get_kmtmult_mc()
+        elif self._htype in ['4d', 'rew4d']:
+            self._se, self._me = self._file.get_4d()
 
         if self._name_se and not self._name_me:
             self._se = self._file.get_histo(self._name_se)
@@ -458,6 +461,12 @@ class cf_handler():
                 histos = getDifferential3D(self._se, self._me, self._diff3d, self._bins3d, self._bins, self._rebin, self._norm)
             elif self._htype == 'rew3d':
                 histos, histos_unw = getDiffReweight3D(self._se, self._me, self._bins3d, self._bins, self._rebin, self._norm, self._rew_range)
+            elif self._htype in ['4d', 'rew4d']:
+                se3d, me3d = getProj4d(self._se, self._me, self._perc)
+                if self._htype == '4d':
+                    histos = getDifferential3D(se3d, me3d, self._diff3d, self._bins3d, self._bins, self._rebin, self._norm)
+                else:
+                    histos, histos_unw = getDiffReweight3D(se3d, me3d, self._bins3d, self._bins, self._rebin, self._norm, self._rew_range)
             else:
                 histos = getDifferential(self._se, self._me, self._htype, self._bins, self._rebin, self._norm)
                 if self._mc:
@@ -872,6 +881,30 @@ def reweight3D(iSE, iME, bins3d, rew_range):
 
     return out
 
+# 4d percentile histos
+def getProj4d(iSE, iME, perc_range):
+    se4d = iSE.Clone("4d_perc_se")
+    me4d = iME.Clone("4d_perc_me")
+
+    axis = se4d.GetAxis(3)
+
+    perc_low = perc_range[0]
+    perc_up  = perc_range[1]
+
+    bin_low = axis.FindBin(perc_low)
+    bin_up  = axis.FindBin(perc_up)
+
+    if perc_up == axis.GetBinLowEdge(bin_up):
+        bin_up -= 1
+
+    se4d.GetAxis(3).SetRange(bin_low, bin_up)
+    me4d.GetAxis(3).SetRange(bin_low, bin_up)
+
+    se = se4d.Projection(0, 1, 2)
+    me = me4d.Projection(0, 1, 2)
+
+    return [se, me]
+
 # returns rebinned copy of histo
 def rebin_hist(input_histo, binning):
     histo = input_histo.Clone()
@@ -928,11 +961,14 @@ def config(dic_conf):
             "namelist":     [list of strings] -> names of dca/cpa plots for fitting
             "fitrange":     float -> fitrange for the template fitter
             "normalize":    [float, float] -> normalization range for the correlation function
+            "percentile":   [low, upper] or int -> lower and upper edges or 0 to int for percentile cut
             "include":      "string" or [list of strings] -> include these variations in the systematics
             "exclude":      "string" or [list of strings] -> exclude these variations in the systematics
             "interactive":  'True', 'False' -> include/exclude interactively variations in terminal
             "debug":        'True', 'False' -> debug information in console
     """
+
+    # settings dictionary skeleton
     dic = {
             "function":     None,
             "pair":         None,
@@ -948,9 +984,9 @@ def config(dic_conf):
             "outDir":       "",
             "rename":       None,
             "bins":         None,
+            "bins3d":       None,
             "diff3d":       "",
             "diff3d2":      "",
-            "bins3d":       None,
             "yield":        None,
             "rebin":        None,
             "atype":        None,
@@ -960,6 +996,7 @@ def config(dic_conf):
             "templates":    None,
             "namelist":     None,
             "fitrange":     None,
+            "percentile":   None,
             "rewrange":     None,
             "normalize":    None,
             "include":      None,
@@ -968,6 +1005,7 @@ def config(dic_conf):
             "interactive":  False
         }
 
+    # keys to set values
     keys_k      = ['k', 'kstar']
     keys_mult   = ['mult', 'kmult']
     keys_mult3d = ['mult3d', 'kmult3d']
@@ -975,22 +1013,36 @@ def config(dic_conf):
     keys_mt     = ['mt', 'kmt']
     keys_mt3d   = ['mt3d', 'kmt3d']
     keys_mtmult = ['mtmult','kmtmult']
+    keys_4d     = ['perc', '4d', '4dim', '4dims']
+    keys_rew4d  = ['rew4d', 'rewperc']
 
     keys_int    = ['int', 'integrated']
     keys_dif    = ['diff', 'dif', 'differential']
 
-    # function to be used
-    if 'function' in dic_conf:
-        dic['function'] = dic_conf['function']
+    entries = ['function',      # function to be used
+               'path',          # path to input file
+               'fileTDir',      # root folder where getter functions are used
+               'mc',            # path to mc root file
+               'mcTDir',        # mc folder inside root file
+               'rename',        # rename output file
+               'templates',     # list of template histos
+               'namelist',      # list of template histos names
+               'fitrange',      # fitrange for templates
+               'normalize',     # range to normalize cf
+               'data',          # not used
+               'bins3d',        # bins to split 3d histo
+               'bins',          # bins to split 2d histo
+               'nameSE',        # root folder with SE histo
+               'nameME',        # root folder with ME histo
+               ]
+    for entry in entries:
+        if entry in dic_conf:
+            dic[entry] = dic_conf[entry]
 
     # type of particle pair
     if 'pair' in dic_conf:
         if dic_conf['pair']:
             dic['pair'] = dic_conf['pair'].lower()
-
-    # input directory
-    if 'path' in dic_conf:
-        dic['path'] = dic_conf['path']
 
     # file name, file directory
     if 'file' in dic_conf:
@@ -1002,10 +1054,7 @@ def config(dic_conf):
             dic['file']  = path_name[1]
     dic['fullpath'] = dic['path'] + dic['file']
 
-    # file TDir/TList
-    if 'fileTDir' in dic_conf:
-        dic['fileTDir'] = dic_conf['fileTDir']
-
+    # output directory
     if 'outDir' in dic_conf:
         if dic_conf['outDir'] != "" and dic_conf['outDir']:
             dic['outDir'] = FU.path_expand(dic_conf['outDir'])
@@ -1014,16 +1063,6 @@ def config(dic_conf):
                 exit()
     else:
         dic['outDir'] = dic['path']
-
-    # name for se and me plot
-    if 'nameSE' in dic_conf:
-        dic['nameSE'] = dic_conf['nameSE']
-    if 'nameSE' in dic_conf:
-        dic['nameSE'] = dic_conf['nameSE']
-
-    # rename output file
-    if 'rename' in dic_conf:
-        dic['rename'] = dic_conf['rename']
 
     # create file
     if 'newfile' in dic_conf:
@@ -1064,6 +1103,10 @@ def config(dic_conf):
             dic['htype'] = 'mt3d'
         elif htype in keys_mtmult:
             dic['htype'] = 'mtmult'
+        elif htype in keys_4d:
+            dic['htype'] = '4d'
+        elif htype in keys_rew4d:
+            dic['htype'] = 'rew4d'
 
     # template fit type
     if 'tftype' in dic_conf:
@@ -1074,19 +1117,7 @@ def config(dic_conf):
             elif tftype == 'cpa':
                 dic['tftype'] = 'cpa'
 
-    # mc data file
-    if 'mc' in dic_conf:
-        dic['mc'] = dic_conf['mc']
-
-    # mc data file TDir/TList
-    if 'mcTDir' in dic_conf:
-        dic['mcTDir'] = dic_conf['mcTDir']
-
-    # bin ranges
-    if 'bins' in dic_conf:
-        dic['bins'] = dic_conf['bins']
-
-   # which axis to be used for the first split in a 3D analysis
+    # which axis to be used for the first split in a 3D analysis
     if 'diff3d' in dic_conf:
         diff3d = dic_conf['diff3d']
         if type(diff3d) == str:
@@ -1097,11 +1128,6 @@ def config(dic_conf):
         elif diff3d in keys_mt:
             dic['diff3d'] = 'mt'
             dic['diff3d2'] = 'mult'
-
-    # binning of the first differential split in case of a 3D analysis;
-    # if used, 'bins' will be used for the binning of the second split
-    if 'bins3d' in dic_conf:
-        dic['bins3d'] = dic_conf['bins3d']
 
     # yield setting to exclude systematic variations below a value of GeV that vary by a given percentage
     # input: [GeV, %]
@@ -1114,37 +1140,29 @@ def config(dic_conf):
     if 'rebin' in dic_conf:
         dic['rebin'] = bin2list(dic_conf['rebin'])
 
-    # general purpose data entry
-    if 'data' in dic_conf:
-        dic['data'] = dic_conf['data']
-
-    # template file/plots
-    if 'templates' in dic_conf:
-        dic['templates'] = dic_conf['templates']
-
-    # names for template file/plots
-    if 'namelist' in dic_conf:
-        dic['namelist'] = dic_conf['namelist']
-
-    # fitrange
-    if 'fitrange' in dic_conf:
-        dic['fitrange'] = dic_conf['fitrange']
-
     # rewrange
     if 'rewrange' in dic_conf:
         if dic_conf['rewrange'] and type(dic_conf['rewrange']) != list:
             print("'rewrange' accepts [min, max]!")
         dic['rewrange'] = dic_conf['rewrange']
 
-    # normalize cf in range
-    if 'normalize' in dic_conf:
-        dic['normalize'] = dic_conf['normalize']
+    # percentile range
+    if 'percentile' in dic_conf:
+        if type(dic_conf['percentile']) == int:
+            dic['percentile'] = [0, dic_conf['percentile']]
+        elif type(dic_conf['percentile']) == list:
+            if len(dic_conf['percentile']) == 1:
+                dic['percentile'] = [0, dic_conf['percentile'][0]]
+            else:
+                dic['percentile'] = dic_conf['percentile']
+        else:
+            print("'percentile' setting error!\nOptions:\n\t[lower edge, upper edge]\n\t[upper edge]\n\tupper edge (int)")
 
-    # normalize cf in range
+    # include variations
     if 'include' in dic_conf:
         dic['include'] = bin2list(dic_conf['include'])
 
-    # normalize cf in range
+    # exclude variations
     if 'exclude' in dic_conf:
         dic['exclude'] = bin2list(dic_conf['exclude'])
 
