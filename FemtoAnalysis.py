@@ -1073,6 +1073,13 @@ def config(dic_conf):
         if dic_conf['newfile'] in [3, "update"]:
             dic['newfile'] = "update"
 
+    # histogram and analysis type
+    if 'type' in dic_conf:
+        dic_conf['atype'] = dic_conf['type'][0]
+        dic_conf['htype'] = dic_conf['type'][1]
+        if len(dic_conf['type']) > 2:
+            dic_conf['diff3d'] = dic_conf['type'][2]
+
     # analysis type
     if 'atype' in dic_conf:
         atype = dic_conf['atype']
@@ -1088,7 +1095,12 @@ def config(dic_conf):
         htype = dic_conf['htype']
         if type(htype) == str:
             htype = htype.lower()
-        if htype in keys_k:
+        if htype in keys_4d:
+            dic['htype'] = '4d'
+        elif htype in keys_rew4d:
+            dic['htype'] = 'rew4d'
+            dic['diff3d'] = 'mt'
+        elif htype in keys_k:
             dic['htype'] = 'k'
         elif htype in keys_mult:
             dic['htype'] = 'mult'
@@ -1103,10 +1115,6 @@ def config(dic_conf):
             dic['htype'] = 'mt3d'
         elif htype in keys_mtmult:
             dic['htype'] = 'mtmult'
-        elif htype in keys_4d:
-            dic['htype'] = '4d'
-        elif htype in keys_rew4d:
-            dic['htype'] = 'rew4d'
 
     # template fit type
     if 'tftype' in dic_conf:
