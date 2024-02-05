@@ -256,7 +256,7 @@ class FemtoDreamSaver(FS.FileSaver):
         # create the output file
         self._create_output("UFFA_syst_")
 
-        syst, syst_plots, tgraphs, cf_raw = self._histos
+        syst, syst_plots, tgraphs, cf_raw, var_matrix = self._histos
 
         default = "femto-dream-pair-task-track-track"
         if self._idir == default:
@@ -278,7 +278,8 @@ class FemtoDreamSaver(FS.FileSaver):
                 dir_cf = dir_bin2.mkdir("cf var")
                 dir_cf.cd()
                 for folder in cf_raw:
-                    folder[n][nn][0].Write()
+                    if(folder[n][nn] is not None):
+                        folder[n][nn][0].Write()
                 dir_bin2.cd()
                 del dir_cf
                 tgraphs[n][nn][0].Write()
@@ -291,7 +292,8 @@ class FemtoDreamSaver(FS.FileSaver):
                         dir_cf = dir_rebin.mkdir("cf var")
                         dir_cf.cd()
                         for folder in cf_raw:
-                            folder[n][nn][1][nnn].Write()
+                            if(folder[n][nn] is not None):
+                                folder[n][nn][1][nnn].Write()
                         dir_rebin.cd()
                         tgraphs[n][nn][1][nnn].Write()
                         self.write(syst_plots[n][nn][1][nnn])
@@ -299,5 +301,8 @@ class FemtoDreamSaver(FS.FileSaver):
                         del dir_rebin
                 dir_bin1.cd()
                 del dir_bin2
+                var_matrix[n].GetYaxis().SetBinLabel(nn+1, bin2_title + str(nn+1))
+            var_matrix[n].SetTitle(bin1_title + str(n+1))
+            var_matrix[n].Write()
             del dir_bin1
 

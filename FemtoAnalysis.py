@@ -5,6 +5,8 @@ import FemtoDreamReader as FDR
 import CorrelationHandler as CH
 import TemplateFit as TF
 
+from math import sqrt
+
 def UFFA(settings):
     conf = config(settings)
     if conf['function'] == 'cf':
@@ -173,6 +175,20 @@ def UFFA_syst(settings):
     histos = (cf_list, syst_plots, tgraphs)
     fds = FDS.FemtoDreamSaver(conf, histos)
 
+def TestSysVariation(yield_std, yield_var, threshhold, useBarlow):
+
+    
+    deviation = 0.
+    if useBarlow:
+       deviation = abs(yield_std - yield_var)/sqrt( yield_std - yield_var )
+       if deviation < threshhold:
+           return [False, deviation]
+    else:
+        deviation = abs(yield_std - yield_var)/yield_std
+        if deviation > threshhold:
+            return [False, deviation]
+    return [True, deviation]
+
 # systematics
 def UFFA_syst_3d(settings):
     conf = config(settings)
@@ -183,11 +199,12 @@ def UFFA_syst_3d(settings):
     histos = ch.get_cf_3d()                                # [[cf, [rebins]], [bin2...], ...], [[cf unw, [rebins]], [bin2...], ...]
 
     # input same event for yield filtering
+    #if conf['yield']:
+    se = fdr.get_se()
     if conf['yield']:
-        se = fdr.get_se()
         pair_num_se = se.Integral(se.FindBin(0), se.FindBin(conf['yield'][0]))
-    if conf['debug']:
-        se_all = ch.get_se_3d()
+    se_all = ch.get_se_3d()
+    pair_num_se_all = []    
 
     syst = []
     syst_plots = []
@@ -199,20 +216,23 @@ def UFFA_syst_3d(settings):
     # create systematic object for all entries
     for n, bin1 in enumerate(histos):
         syst.append([])
+        pair_num_se_all.append( [] )
         for nn, [cf, cf_rebin] in enumerate(bin1):
             syst[n].append([Systematics(cf), []])
+            pair_num_se_all[n].append( se_all[n][nn][0].Integral(se_all[n][nn][0].FindBin(0), se_all[n][nn][0].FindBin(conf['yield'][0])) )
             if conf['rebin']:
                 for nnn in range(len_rebin):
                     syst[n][nn][1].append(Systematics(cf_rebin[nnn]))
 
     # loop over data variations in file and calculate the cf for each
     # which is then saved in a th2 from which the systematic error is computed and saved in a th1
-    file_dir = fdr.get_dir();
+    file_dir = fdr.get_dir()
     fdr.cd(0)                               # class method of FileSaver to return to root of file
     folders = fdr.get_folder_names()
-    folder_counter = -1
+
+    # preloop to determine the folders to include for the systematics
+    sys_folders = [] 
     for folder in folders:
-        fdr.cd(folder)
 
         # include/exclude specific variations
         if conf['exclude'] and folder in conf['exclude']:
@@ -222,27 +242,57 @@ def UFFA_syst_3d(settings):
                 pass
             else:
                 continue
-        elif folder.rsplit('_')[-1][:3] != "Var":
+        elif conf['std_syst'] and (folder.rsplit('_')[-1][:3] != "Var"):
+            print("enter elif")
             continue
 
+        print(folder)
+        sys_folders.append(folder)
+
+
+    #2D matrix to track which variation is considered in which multiplicity and mT bin
+    print(sys_folders)
+    var_matrix = []
+    for ibin1 in range(len(histos)):
+
+        var_matrix.append( ROOT.TH2F(f"var_matrix_bin1_{ibin1}", f"var_matrix_bin1_{ibin1}", len(sys_folders), 0, len(sys_folders), len(histos[ibin1]), 0, len(histos[ibin1])) )
+        # create the labels of this histogram
+        for ix, folder in enumerate(sys_folders):
+            #var_matrix[ibin1].GetXaxis().SetBinLabel(ix+1, folder.rsplit('_')[-2] + folder.rsplit('_')[-1])
+            var_matrix[ibin1].GetXaxis().SetBinLabel(ix+1, folder.rsplit('_')[-1])
+        
+        for iy in range(len(histos[ibin1])):
+            var_matrix[ibin1].GetYaxis().SetBinLabel(iy+1, f"bin_2_{iy}")
+
+
+    folder_counter = -1
+    for ifolder, folder in enumerate(sys_folders): 
+
+        fdr.cd(folder)
         ch_var = cf_handler(fdr, conf)
         histos_var = ch_var.get_cf_3d()
+        se_var_all= ch_var.get_se_3d()
+        se_var = fdr.get_se() 
+        pair_num_var = se_var.Integral(se_var.FindBin(0.), se_var.FindBin(conf['yield'][0]))
+        deviation = abs(pair_num_se - pair_num_var) / pair_num_se
 
         if conf['debug']:
+            dev = deviation * 100
             print("Variation: \"" + folder + "\"")
+            print("Integrated yield k*: [0, " + str(conf['yield'][0]) + ") differs by " + f"{dev:.1f} %")
+        
         # compare integrated yields in given range
-        if conf['yield']:
-            se_var = fdr.get_se()
-            pair_num_var = se_var.Integral(se_var.FindBin(0), se_var.FindBin(conf['yield'][0]))
-            deviation = abs(pair_num_se - pair_num_var) / pair_num_se
-            if deviation > conf['yield'][1]:
+        if conf['yield'] and (conf['yield3d'] is False):
+            vartest = TestSysVariation(pair_num_se, pair_num_var, conf['yield'][1], conf['useBarlow']) 
+            if vartest[0] is False: 
                 if conf['debug']:
-                    dev = deviation * 100
-                    print("Integrated yield k*: [0, " + str(conf['yield'][0]) + ") differs by " + f"{dev:.1f} %")
-                    if deviation > conf['yield'][1]:
-                        print("Variation: Excluded!\n")
-                        continue
-        if conf['debug']:
+                    print(f"{tab}Variation: Excluded!\n")
+                continue  
+
+        #this part I will cut out
+        # ----------------------- 
+        """
+        if conf['debug'] and (conf['yield3d'] is False):
             se_var_all = ch_var.get_se_3d()
             tab = '\t'
             for n, bin1 in enumerate(se_var_all):
@@ -258,19 +308,54 @@ def UFFA_syst_3d(settings):
                 if option and option.lower()[0] == 'n':
                     print("\"" + folder + "\" excluded!\n")
                     continue
+        """
+        # ----------------------- 
         folder_counter += 1
 
         cf_raw.append([])   # add entry for folder
         # add rebinned variations
         for n, bin1 in enumerate(histos_var):
+            if conf['debug']:
+                print(f"Differential yield {conf['diff3d']:s}: [{conf['bins3d'][n]:.2f}, {conf['bins3d'][n + 1]:.2f})")
             cf_raw[folder_counter].append([])
+
+            tab = '\t'
             for nn, [cf, cf_rebin] in enumerate(bin1):
+
+                yield_var_all = se_var_all[n][nn][0].Integral(se_var_all[n][nn][0].FindBin(0.), se_var_all[n][nn][0].FindBin(conf['yield'][0]))
+                deviation = (abs(pair_num_se_all[n][nn] - yield_var_all) / pair_num_se_all[n][nn])
+                if conf['debug']: 
+                    dev = deviation * 100
+                    print("Yield std: "+str(pair_num_se_all[n][nn]))
+                    print("Yield var: "+str(yield_var_all))
+                    print(f"{tab}{conf['diff3d2']:s}:  [{conf['bins'][nn]:.2f}, {conf['bins'][nn + 1]:.2f}) {tab} {dev:5.2f} %")
+
+                if conf['yield'] and conf['yield3d']:
+                    vartest = TestSysVariation(pair_num_se_all[n][nn], yield_var_all, conf['yield'][1], conf['useBarlow']) 
+                    if vartest[0] is False:
+                        if conf['debug']: 
+                            print(f"{tab}Variation: Excluded!\n")
+                        if conf['varMatrixBin']:
+                            var_matrix[n].SetBinContent(folder_counter+1, nn+1, 0.)
+                        else:
+                            var_matrix[n].SetBinContent(folder_counter+1, nn+1, vartest[1])
+                        cf_raw[folder_counter][n].append(None)
+                        continue
+                 
+                if conf['varMatrixBin']:
+                    var_matrix[n].SetBinContent(folder_counter+1, nn+1, 1.)
+                else:
+                    var_matrix[n].SetBinContent(folder_counter+1, nn+1, vartest[1])
+                #cf_raw[folder_counter][n].append([cf.Clone("CF_" + folder.rsplit('_')[-2] + folder.rsplit('_')[-1]), []])
                 cf_raw[folder_counter][n].append([cf.Clone("CF_" + folder.rsplit('_')[-1]), []])
                 syst[n][nn][0].AddVar(cf)
                 if conf['rebin']:
                     for nnn in range(len_rebin):
+                        #cf_raw[folder_counter][n][nn][1].append(cf_rebin[nnn].Clone("CF_" + folder.rsplit('_')[-2] + folder.rsplit('_')[-1]))
                         cf_raw[folder_counter][n][nn][1].append(cf_rebin[nnn].Clone("CF_" + folder.rsplit('_')[-1]))
                         syst[n][nn][1][nnn].AddVar(cf_rebin[nnn])
+            if conf['debug']:
+                print()
         del ch_var
 
     # generate th2 plots for systematics
@@ -302,7 +387,7 @@ def UFFA_syst_3d(settings):
                         tgraphs[n][nn][1][nnn].SetPoint(nnnn - 1, hist_rebin[nnn].GetBinCenter(nnnn), hist_rebin[nnn].GetBinContent(nnnn))
                         tgraphs[n][nn][1][nnn].SetPointError(nnnn - 1, 0, syst_plots[n][nn][1][nnn][2].GetBinContent(nnnn))
 
-    all_histos = (histos, syst_plots, tgraphs, cf_raw)
+    all_histos = (histos, syst_plots, tgraphs, cf_raw, var_matrix)
     fds = FDS.FemtoDreamSaver(conf, all_histos)
 
 # class that returns the systematics of a cf
@@ -310,7 +395,7 @@ def UFFA_syst_3d(settings):
 # GetAll() returns [th2 cf, th2 difference, th1 systematics, th1 std dev]
 class Systematics():
     counter = 0
-    ybins = 1200
+    ybins = 2000
     def __init__(self, cf):
         self._cf = cf
         self._xaxis = cf.GetXaxis()
@@ -318,9 +403,12 @@ class Systematics():
 
         text = "" if Systematics.counter == 0 else " " + str(Systematics.counter)
         self._var = ROOT.TH2D("CF th2" + text, "CF th2", self._xbins, self._xaxis.GetXmin(), self._xaxis.GetXmax(), Systematics.ybins, 0, 10)
-        self._dif = ROOT.TH2D("diff th2" + text, "diff th2", self._xbins, self._xaxis.GetXmin(), self._xaxis.GetXmax(), Systematics.ybins, -5, 5)
+        self._dif = ROOT.TH2D("diff th2" + text, "diff th2", self._xbins, self._xaxis.GetXmin(), self._xaxis.GetXmax(), Systematics.ybins, 0, 10)
         self._sys = ROOT.TH1D("syst th1" + text, "syst th1", self._xbins, self._xaxis.GetXmin(), self._xaxis.GetXmax())
         self._dev = ROOT.TH1D("dev th1" + text, "dev th1", self._xbins, self._xaxis.GetXmin(), self._xaxis.GetXmax())
+        
+        #self._minvar = ROOT.TH1F("minvar_"+text, "minvar_"+text. self._xbins, self._xaxis.GetXmin(), self._xaxis.GetXmax());
+        #self._maxvar = ROOT.TH1F("maxvar_"+text, "maxvar_"+text. self._xbins, self._xaxis.GetXmin(), self._xaxis.GetXmax());
         Systematics.counter = Systematics.counter + 1
 
     def AddVar(self, cf_var):
@@ -350,6 +438,13 @@ class Systematics():
         self._sys.SetDirectory(0)
         self._dev.SetDirectory(0)
 
+    def GenTGraph(self):
+        self._tgraph = ROOT.TGraphErrors()
+        for nnn in range(1, self._cf.GetNbinsX() + 1):
+            self._tgraph.SetName("CF syst graph")
+            self._tgraph.SetPoint(nnn -1, self._cf.GetBinCenter(nnn), self._cf.GetBinContent(nnn))
+            self._tgraph.SetPointError(nnn - 1, 0, self._sys.GetBinContent(nnn))
+
     def SetBinning(self, n):
         Systematics.ybins = n
 
@@ -364,9 +459,16 @@ class Systematics():
 
     def GetDev(self):
         return self._dev
+    
+    def GetTGraph(self):
+        return self._tgraph
 
     def GetAll(self):
+        #return [self._var, self._dif, self._sys, self._dev, self._varmin, self._varmax]
         return [self._var, self._dif, self._sys, self._dev]
+    
+    def GetAllandTgraph(self):
+        return [self._var, self._dif, self._sys, self._dev, self._tgraph]
 
 # class that handles the retrieving of histos and computing of correlation functions
 class cf_handler():
@@ -952,6 +1054,10 @@ def config(dic_conf):
             "diff3d2":      "",
             "bins3d":       None,
             "yield":        None,
+            "yield3d":      False,
+            "std_syst":     True,
+            "varMatrixBin": True,
+            "useBarlow":    False,
             "rebin":        None,
             "atype":        None,
             "htype":        None,
@@ -1109,6 +1215,18 @@ def config(dic_conf):
         dic['yield'] = dic_conf['yield']
         if dic['yield'] and len(dic['yield']) != 2:
             print("'yield' accepts [GeV, deviation], where GeV defines [0, GeV) and deviation the percentage!")
+    
+    if 'yield3d' in dic_conf:
+        dic['yield3d'] = dic_conf['yield3d']
+
+    if 'std_syst' in dic_conf:
+        dic['std_syst'] = dic_conf['std_syst']
+    
+    if 'varMatrixBin' in dic_conf:
+        dic['varMatrixBin'] = dic_conf['varMatrixBin']
+
+    if 'useBarlow' in dic_conf:
+        dic['useBarlow'] = dic_conf['useBarlow']
 
     # rebin factor/s
     if 'rebin' in dic_conf:
