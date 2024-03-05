@@ -1046,13 +1046,14 @@ def config(dic_conf):
 
     # file name, file directory
     if 'file' in dic_conf:
-        path_name = dic_conf['file'].rsplit('/', 1)
-        if len(path_name) == 1:
-            dic['file']  = path_name[0]
-        else:
-            dic['path'] = FU.path_expand(path_name[0]) + '/'
-            dic['file']  = path_name[1]
-    dic['fullpath'] = dic['path'] + dic['file']
+        if dic_conf['file']:
+            path_name = dic_conf['file'].rsplit('/', 1)
+            if len(path_name) == 1:
+                dic['file']  = path_name[0]
+            else:
+                dic['path'] = FU.path_expand(path_name[0]) + '/'
+                dic['file']  = path_name[1]
+            dic['fullpath'] = dic['path'] + dic['file']
 
     # output directory
     if 'outDir' in dic_conf:
@@ -1163,8 +1164,6 @@ def config(dic_conf):
                 dic['percentile'] = [0, dic_conf['percentile'][0]]
             else:
                 dic['percentile'] = dic_conf['percentile']
-        else:
-            print("'percentile' setting error!\nOptions:\n\t[lower edge, upper edge]\n\t[upper edge]\n\tupper edge (int)")
 
     # include variations
     if 'include' in dic_conf:

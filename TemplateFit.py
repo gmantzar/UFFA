@@ -41,7 +41,10 @@ def TemplateFit(fname, dca_data, dca_mcplots, dcacpa, dca_mcplots_names, fit_ran
                 bin_value1 = xAxis.FindBin(pt_bins[0][i])
                 bin_value2 = xAxis.FindBin(pt_bins[0][i + 1])
                 pt_range.append((bin_value1, bin_value2))
-            pt_rebin = pt_bins[1]
+            if (len(pt_bins[1]) > 1):
+                pt_rebin = pt_bins[1]*pt_ent
+            else:
+                pt_rebin = pt_bins[1]
         elif type(pt_bins[0]) == list and type(pt_bins[1]) == int:      # input: [[bin range], rebin factor]
             pt_ent = len(pt_bins[0]) - 1
             pt_range = []
@@ -61,6 +64,9 @@ def TemplateFit(fname, dca_data, dca_mcplots, dcacpa, dca_mcplots_names, fit_ran
     else:
         print("TemplateFit.py: pt_bins not an int or list of ranges: " + pt_bins)
         exit()
+
+    print(pt_bins)
+    print(pt_rebin)
 
     # titles of the graphs
     pt_names = []
@@ -128,7 +134,8 @@ def TemplateFit(fname, dca_data, dca_mcplots, dcacpa, dca_mcplots_names, fit_ran
         else:
             data_int = data.Integral(data.FindBin(fitmin), data.FindBin(fitmax))
         dataEntries.append(data_int)
-        data.Scale(1. / data.Integral())
+        if data.Integral():
+            data.Scale(1. / data.Integral())
 
         # MC templates
         hDCA_mc = []
@@ -138,7 +145,8 @@ def TemplateFit(fname, dca_data, dca_mcplots, dcacpa, dca_mcplots_names, fit_ran
                 hDCA_mc[i].Rebin(pt_rebin[n])
             hDCA_mc[i].SetAxisRange(fitmin, fitmax)
             hDCA_mc[i].SetTitle(pt_names[n])
-            hDCA_mc[i].Scale(1. / hDCA_mc[i].Integral())
+            if hDCA_mc[i].Integral():
+                hDCA_mc[i].Scale(1. / hDCA_mc[i].Integral())
 
         # fit function
         adj = ftotal(data, hDCA_mc)
@@ -199,7 +207,10 @@ def TemplateFit(fname, dca_data, dca_mcplots, dcacpa, dca_mcplots_names, fit_ran
                 parDCA_mc[i].append(hDCA_mc[i].Integral(hDCA_mc[i].FindBin(CPAcut), hDCA_mc[i].FindBin(1)) / mcEntries[n])
         else:
             for i in range(dca_ent):
-                parDCA_mc[i].append(hDCA_mc[i].Integral(hDCA_mc[i].FindBin(fitmin), hDCA_mc[i].FindBin(fitmax)) / mcEntries[n])
+                tmp = hDCA_mc[i].Integral(hDCA_mc[i].FindBin(fitmin), hDCA_mc[i].FindBin(fitmax))
+                if mcEntries[n]:
+                    tmp = tmp / mcEntries[n]
+                parDCA_mc[i].append(tmp)
 
         # fill x and y lists for graphs
         pt_avg = (xAxis.GetBinLowEdge(pt_range[n][0]) + xAxis.GetBinLowEdge(pt_range[n][1])) / 2
