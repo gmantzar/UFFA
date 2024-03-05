@@ -42,9 +42,9 @@ def TemplateFit(fname, dca_data, dca_mcplots, dcacpa, dca_mcplots_names, fit_ran
                 bin_value2 = xAxis.FindBin(pt_bins[0][i + 1])
                 pt_range.append((bin_value1, bin_value2))
             if (len(pt_bins[1]) > 1):
-                pt_rebin = pt_bins[1]*pt_ent
-            else:
                 pt_rebin = pt_bins[1]
+            else:
+                pt_rebin = pt_bins[1]*pt_ent
         elif type(pt_bins[0]) == list and type(pt_bins[1]) == int:      # input: [[bin range], rebin factor]
             pt_ent = len(pt_bins[0]) - 1
             pt_range = []
