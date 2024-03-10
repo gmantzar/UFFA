@@ -547,7 +547,7 @@ class cf_handler():
             se, me = getProj4d(self._se, self._me, self._perc)
 
         if self._htype in ['rew3d', 'rew4d']:
-            histos, histos_unw = getDiffReweight3D(se, me, self._bins3d, self.bins, self._rebin, self._nrm, self._rew_range)
+            histos, histos_unw = getDiffReweight3D(se, me, self._bins3d, self._bins, self._rebin, self._norm, self._rew_range)
         else:
             histos = getDifferential3D(se, me, self._diff3d, self._bins3d, self._bins, self._rebin, self._norm)
 
