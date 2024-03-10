@@ -31,7 +31,7 @@ class FemtoDreamSaver(FS.FileSaver):
         elif self._func == 'tf':
             self._save_tf()
         elif self._func == 'syst':
-            if self._htype == 'mtmult':
+            if self._htype in ['mtmult', 'rew3d', '4d', 'rew4d']:
                 self._save_syst_3d()
             else:
                 self._save_syst()
