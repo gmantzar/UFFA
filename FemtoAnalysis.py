@@ -316,11 +316,10 @@ class Systematics():
         self._xaxis = cf.GetXaxis()
         self._xbins = cf.GetNbinsX()
 
-        text = "" if Systematics.counter == 0 else " " + str(Systematics.counter)
-        self._var = ROOT.TH2D("CF_th2" + text, "CF_th2", self._xbins, self._xaxis.GetXmin(), self._xaxis.GetXmax(), Systematics.ybins, 0, 10)
-        self._dif = ROOT.TH2D("diff_th2" + text, "diff_th2", self._xbins, self._xaxis.GetXmin(), self._xaxis.GetXmax(), Systematics.ybins, -5, 5)
-        self._sys = ROOT.TH1D("syst_th1" + text, "syst_th1", self._xbins, self._xaxis.GetXmin(), self._xaxis.GetXmax())
-        self._dev = ROOT.TH1D("dev_th1" + text, "dev_th1", self._xbins, self._xaxis.GetXmin(), self._xaxis.GetXmax())
+        self._var = ROOT.TH2D("CF_th2", "CF_th2", self._xbins, self._xaxis.GetXmin(), self._xaxis.GetXmax(), Systematics.ybins, 0, 10)
+        self._dif = ROOT.TH2D("diff_th2", "diff_th2", self._xbins, self._xaxis.GetXmin(), self._xaxis.GetXmax(), Systematics.ybins, -5, 5)
+        self._sys = ROOT.TH1D("syst_th1", "syst_th1", self._xbins, self._xaxis.GetXmin(), self._xaxis.GetXmax())
+        self._dev = ROOT.TH1D("dev_th1", "dev_th1", self._xbins, self._xaxis.GetXmin(), self._xaxis.GetXmax())
         Systematics.counter = Systematics.counter + 1
 
     def AddVar(self, cf_var):
