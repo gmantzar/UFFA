@@ -20,7 +20,7 @@ def path_fix(dir_name):
         dir_name = ""
     return dir_name
 
-# function that looks if 'file' exists and if yes it append -n, where n depends on if another file was already created
+# function that looks if 'file' exists and if yes it appends -n, where n depends on if another file was already created
 def file_exists(file):
     file = path_expand(file)
     if not ROOT.gSystem.AccessPathName(file):

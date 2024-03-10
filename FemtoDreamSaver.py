@@ -93,7 +93,7 @@ class FemtoDreamSaver(FS.FileSaver):
                 self.write(hist_unw[:2])                    # me unw, cf unw
             if self._rebin:                                 # all rebinned se, me, cf, me unw, cf unw, in individual directories
                 for n in range(len(self._rebin)):
-                    dir_rebin = dir_root.mkdir("rebin: " + str(self._rebin[n]))
+                    dir_rebin = dir_root.mkdir(f"rebin_{self._rebin[n]}")
                     dir_rebin.cd()
                     self.write(hist_smc[0][3][n])           # [[se, me, cf, [rebins]]]
                     if self._htype == 'mult':
@@ -116,7 +116,7 @@ class FemtoDreamSaver(FS.FileSaver):
                     self.write(hist_unw_mc[:2])             # [me unw, cf unw, [rebins]]
                 if self._rebin:                             # rebin directories in main directory
                     for n in range(len(self._rebin)):
-                        dir_rebin = dir_mc.mkdir("rebin: " + str(self._rebin[n]))
+                        dir_rebin = dir_mc.mkdir("rebin_{self._rebin[n]}")
                         dir_rebin.cd()
                         self.write(hist_smc_mc[0][3][n])
                         if self._htype == 'mult':
@@ -129,14 +129,14 @@ class FemtoDreamSaver(FS.FileSaver):
             if self._htype in ['mtmult', 'rew3d', '4d', 'rew4d']:                 # 3D histogramms
                 self.write(hist_in)                                   # [iSE, iME]
                 for n in range(len(self._bins3d) - 1):            # list: [1, 2, 3, 4] -> ranges: [1-2, 2-3, 3-4]
-                    dir_bindiff3d = dir_root.mkdir("bin "+str(self._diff3d)+": " + str(n + 1))
+                    dir_bindiff3d = dir_root.mkdir(f"bin_{self._diff3d}_" + str(n + 1))
                     dir_bindiff3d.cd()
 
                     self.write(hist_smc[n][0])                        # 2D projection in the first bin of the 3D histogram
                     if self._htype in ['rew3d', 'rew4d']:
-                        hist_unw_smc[n][0][1].Write("ME kmult unw")
+                        hist_unw_smc[n][0][1].Write("ME_kmult_unw")
                     for nm in range(1, len(self._bins)):
-                        dir_bin = dir_bindiff3d.mkdir("bin: " + str(nm))
+                        dir_bin = dir_bindiff3d.mkdir(f"bin_{nm}")
                         dir_bin.cd()                                # [[se, me, cf, [rebins]], ...]
                         self.write(hist_smc[n][nm][:3])             #   ^^  ^^  ^^
                                                                     #  rebin directories inside each mt/mult bin directory
@@ -145,7 +145,7 @@ class FemtoDreamSaver(FS.FileSaver):
                             hist_unw_smc[n][nm][2].Write("CF_unw")
                         if self._rebin:
                             for m in range(len(self._rebin)):
-                                dir_rebin = dir_bin.mkdir("rebin: " + str(self._rebin[m]))
+                                dir_rebin = dir_bin.mkdir(f"rebin_{self._rebin[m]}")
                                 dir_rebin.cd()
                                 self.write(hist_smc[n][nm][3][m])   # [[se, me, cf, [rebins]], ...]
                                 if self._htype in ['rew3d', 'rew4d']:
@@ -161,12 +161,12 @@ class FemtoDreamSaver(FS.FileSaver):
             else:
                 self.write(hist_in)                             # [iSE, iME]
                 for n in range(len(self._bins) - 1):            # list: [1, 2, 3, 4] -> ranges: [1-2, 2-3, 3-4]
-                    dir_bin = dir_root.mkdir("bin: " + str(n + 1))
+                    dir_bin = dir_root.mkdir("bin_" + str(n + 1))
                     dir_bin.cd()
                     self.write(hist_smc[n][:3])                 # [[se, me, cf, [rebins]], ...]
                     if self._rebin:                             # rebin directories inside each mt/mult bin directory
                         for m in range(len(self._rebin)):
-                            dir_rebin = dir_bin.mkdir("rebin: " + str(self._rebin[m]))
+                            dir_rebin = dir_bin.mkdir(f"rebin_{self._rebin[m]}")
                             dir_rebin.cd()
                             self.write(hist_smc[n][3][m])       # [[se, me, cf, [rebins]], ...]
                             dir_bin.cd()
@@ -186,12 +186,12 @@ class FemtoDreamSaver(FS.FileSaver):
                 dir_mc.cd()
                 self.write(hist_in_mc)                      # [iSE, iME]
                 for n in range(len(self._bins) - 1):        # list: [1, 2, 3, 4] -> ranges: [1-2, 2-3, 3-4]
-                    dir_bin = dir_mc.mkdir("bin: " + str(n + 1))
+                    dir_bin = dir_mc.mkdir("bin_" + str(n + 1))
                     dir_bin.cd()
                     if self._rebin:                         # rebin directories inside each mt/mult bin directory
                         self.write(hist_smc_mc[n][:3])
                         for m in range(len(self._rebin)):
-                            dir_rebin = dir_bin.mkdir("rebin: " + str(self._rebin[m]))
+                            dir_rebin = dir_bin.mkdir(f"rebin_{self._rebin[m]}")
                             dir_rebin.cd()
                             self.write(hist_smc_mc[n][3][m])
                             dir_bin.cd()
@@ -226,7 +226,7 @@ class FemtoDreamSaver(FS.FileSaver):
             self.write(syst_plots[0][0])
             if self._rebin:
                 for i, factor in enumerate(self._rebin):
-                    dir_rebin = dir_root.mkdir("rebin: " + str(factor))
+                    dir_rebin = dir_root.mkdir(f"rebin_{factor}")
                     dir_rebin.cd()
                     syst[0][1][i].Write()
                     tgraphs[0][1][i].Write()
@@ -235,14 +235,14 @@ class FemtoDreamSaver(FS.FileSaver):
                     del dir_rebin
         elif self._atype == 'dif':
             for n in range(len(syst)):
-                dir_bin = dir_root.mkdir("bin: " + str(n + 1))
+                dir_bin = dir_root.mkdir("bin_" + str(n + 1))
                 dir_bin.cd()
                 syst[n][0].Write()
                 tgraphs[n][0].Write()
                 self.write(syst_plots[n][0])
                 if self._rebin:
                     for i, factor in enumerate(self._rebin):
-                        dir_rebin = dir_bin.mkdir("rebin: " + str(factor))
+                        dir_rebin = dir_bin.mkdir(f"rebin_{factor}")
                         dir_rebin.cd()
                         syst[n][1][i].Write()
                         tgraphs[n][1][i].Write()
@@ -277,7 +277,7 @@ class FemtoDreamSaver(FS.FileSaver):
                 dir_bin2 = dir_bin1.mkdir(bin2_title + str(nn + 1))
                 dir_bin2.cd()
                 syst[n][nn][0].Write()
-                dir_cf = dir_bin2.mkdir("cf var")
+                dir_cf = dir_bin2.mkdir("cf_var")
                 dir_cf.cd()
                 for folder in cf_raw:
                     folder[n][nn][0].Write()
@@ -287,10 +287,10 @@ class FemtoDreamSaver(FS.FileSaver):
                 self.write(syst_plots[n][nn][0])
                 if self._rebin:
                     for nnn, factor in enumerate(self._rebin):
-                        dir_rebin = dir_bin2.mkdir("rebin: " + str(factor))
+                        dir_rebin = dir_bin2.mkdir(f"rebin_{factor}")
                         dir_rebin.cd()
                         syst[n][nn][1][nnn].Write()
-                        dir_cf = dir_rebin.mkdir("cf var")
+                        dir_cf = dir_rebin.mkdir("cf_var")
                         dir_cf.cd()
                         for folder in cf_raw:
                             folder[n][nn][1][nnn].Write()

@@ -12,7 +12,7 @@ def UFFA(settings):
     elif conf['function'] == 'tf':
         UFFA_tf(conf)
     elif conf['function'] == 'syst':
-        if conf['htype'] == 'mtmult':
+        if conf['htype'] in ['mtmult', 'rew3d', '4d', 'rew4d']:
             UFFA_syst_3d(conf)
         else:
             UFFA_syst(conf)
@@ -49,7 +49,7 @@ def UFFA_tf(settings):
         bins = [conf['bins'], conf['rebin']]
     else:
         bins = conf['bins']
-    TF.TemplateFit(ofile, dca_data, dca_mcplots, conf['tftype'], conf['namelist'], conf['fitrange'], bins, conf['outDir'])
+    TF.TemplateFit(ofile, dca_data, dca_mcplots, conf['tftype'], conf['namelist'], conf['fitrange'], bins, conf['outDir'], conf['templatesFix'])
 
 # systematics
 def UFFA_syst(settings):
@@ -159,14 +159,14 @@ def UFFA_syst(settings):
     for n, (hist, hist_rebin) in enumerate(cf_list):
         tgraphs.append([ROOT.TGraphErrors(), []])
         for i in range(1, hist.GetNbinsX() + 1):
-            tgraphs[n][0].SetName("CF syst graph")
+            tgraphs[n][0].SetName("CF_syst_graph")
             tgraphs[n][0].SetPoint(i - 1, hist.GetBinCenter(i), hist.GetBinContent(i))
             tgraphs[n][0].SetPointError(i - 1, 0, syst_plots[n][0][2].GetBinContent(i))
         if conf['rebin']:
             for i in range(len_rebin):
                 tgraphs[n][1].append(ROOT.TGraphErrors())
                 for j in range(1, hist.GetNbinsX() + 1):
-                    tgraphs[n][1][i].SetName("CF syst graph")
+                    tgraphs[n][1][i].SetName("CF_syst_graph")
                     tgraphs[n][1][i].SetPoint(j - 1, hist_rebin[i].GetBinCenter(j), hist_rebin[i].GetBinContent(j))
                     tgraphs[n][1][i].SetPointError(j - 1, 0, syst_plots[n][1][i][2].GetBinContent(j))
 
@@ -317,10 +317,10 @@ class Systematics():
         self._xbins = cf.GetNbinsX()
 
         text = "" if Systematics.counter == 0 else " " + str(Systematics.counter)
-        self._var = ROOT.TH2D("CF th2" + text, "CF th2", self._xbins, self._xaxis.GetXmin(), self._xaxis.GetXmax(), Systematics.ybins, 0, 10)
-        self._dif = ROOT.TH2D("diff th2" + text, "diff th2", self._xbins, self._xaxis.GetXmin(), self._xaxis.GetXmax(), Systematics.ybins, -5, 5)
-        self._sys = ROOT.TH1D("syst th1" + text, "syst th1", self._xbins, self._xaxis.GetXmin(), self._xaxis.GetXmax())
-        self._dev = ROOT.TH1D("dev th1" + text, "dev th1", self._xbins, self._xaxis.GetXmin(), self._xaxis.GetXmax())
+        self._var = ROOT.TH2D("CF_th2" + text, "CF_th2", self._xbins, self._xaxis.GetXmin(), self._xaxis.GetXmax(), Systematics.ybins, 0, 10)
+        self._dif = ROOT.TH2D("diff_th2" + text, "diff_th2", self._xbins, self._xaxis.GetXmin(), self._xaxis.GetXmax(), Systematics.ybins, -5, 5)
+        self._sys = ROOT.TH1D("syst_th1" + text, "syst_th1", self._xbins, self._xaxis.GetXmin(), self._xaxis.GetXmax())
+        self._dev = ROOT.TH1D("dev_th1" + text, "dev_th1", self._xbins, self._xaxis.GetXmin(), self._xaxis.GetXmax())
         Systematics.counter = Systematics.counter + 1
 
     def AddVar(self, cf_var):
@@ -333,7 +333,7 @@ class Systematics():
         for i in range(1, self._xbins + 1):
             if self._cf.GetBinCenter(i) > 3:    # break over 3GeV
                 break
-            cf_proj = self._var.ProjectionY("cf xbin" + str(i), i, i)
+            cf_proj = self._var.ProjectionY("cf_xbin" + str(i), i, i)
             dev = cf_proj.GetStdDev()
             self._dev.SetBinContent(i, dev)
             cont_def = self._cf.GetBinContent(i)
@@ -341,7 +341,7 @@ class Systematics():
             var_max = cf_proj.GetBinCenter(cf_proj.FindLastBinAbove(0))
             self._dif.SetBinContent(i, self._dif.GetYaxis().FindBin(var_min), 1)
             self._dif.SetBinContent(i, self._dif.GetYaxis().FindBin(var_max), 1)
-            dif_proj = self._dif.ProjectionY("diff xbin" + str(i), i, i)
+            dif_proj = self._dif.ProjectionY("diff_xbin" + str(i), i, i)
             proj_min = dif_proj.GetBinCenter(dif_proj.FindFirstBinAbove(0))     # minimum value of difference
             proj_max = dif_proj.GetBinCenter(dif_proj.FindLastBinAbove(0))      # maximum value of difference
             self._sys.SetBinContent(i, (proj_max - proj_min) / (12**0.5))       # assume a square distribution
@@ -541,7 +541,16 @@ class cf_handler():
     def get_cf_3d(self):
         cf_list = []
 
-        histos = getDifferential3D(self._se, self._me, self._diff3d, self._bins3d, self._bins, self._rebin, self._norm)
+        se = self._se
+        me = self._me
+        if self._htype in ['4d', 'rew4d']:
+            se, me = getProj4d(self._se, self._me, self._perc)
+
+        if self._htype in ['rew3d', 'rew4d']:
+            histos, histos_unw = getDiffReweight3D(se, me, self._bins3d, self.bins, self._rebin, self._nrm, self._rew_range)
+        else:
+            histos = getDifferential3D(se, me, self._diff3d, self._bins3d, self._bins, self._rebin, self._norm)
+
         histos = histos[1:]     # remove TH3 histos
         for n, bin1 in enumerate(histos):
             cf_list.append([])
@@ -558,7 +567,16 @@ class cf_handler():
     def get_se_3d(self):
         se_list = []
 
-        histos = getDifferential3D(self._se, self._me, self._diff3d, self._bins3d, self._bins, self._rebin, self._norm)
+        se = self._se
+        me = self._me
+        if self._htype in ['4d', 'rew4d']:
+            se, me = getProj4d(self._se, self._me, self._perc)
+
+        if self._htype in ['rew3d', 'rew4d']:
+            histos, histos_unw = getDiffReweight3D(se, me, self._bins3d, self.bins, self._rebin, self._nrm, self._rew_range)
+        else:
+            histos = getDifferential3D(se, me, self._diff3d, self._bins3d, self._bins, self._rebin, self._norm)
+
         histos = histos[1:]     # remove TH3 histos
         for n, bin1 in enumerate(histos):
             se_list.append([])
@@ -586,16 +604,19 @@ def getBinRangeHistos(iSE, iME, bins):
 
     if type(bins) == list:
         limits = []
-        for mt_value in bins:
-            bin_value = yAxis.FindBin(float(mt_value))
-            limits.append(bin_value)
+        for value_diff in bins:
+            value_bin = yAxis.FindBin(float(value_diff))
+            # check if the bin value is the lower edge of the next bin and if yes, lower the number
+            if value_diff == yAxis.GetBinLowEdge(value_bin):
+                value_bin -= 1
+            limits.append(value_bin)
     else:
         print("Error in getBinRangeHistos: bin input \"" + str(bins) + "\" not a list of ranges!")
         exit()
 
     histos = []
     for n in range(1, len(limits)):
-        name = "[%.2f-%.2f)" % (yAxis.GetBinLowEdge(limits[n - 1]), yAxis.GetBinLowEdge(limits[n]))
+        name = "[%.2f-%.2f)" % (bins[n - 1], bins[n])
         se = iSE.ProjectionX("se_k", limits[n - 1], limits[n])
         me = iME.ProjectionX("me_k", limits[n - 1], limits[n])
         histos.append([name, se.Clone(), me.Clone()])
@@ -627,16 +648,19 @@ def getBinRangeHistos3D(iSE, iME, diff3d, bins3d):
 
     if type(bins3d) == list:
         limits = []
-        for diff_value in bins3d:
-            bin_value = diffAxisSE.FindBin(float(diff_value))
-            limits.append(bin_value)
+        for value_diff in bins3d:
+            value_bin = diffAxisSE.FindBin(float(value_diff))
+            # check if the bin value is the lower edge of the next bin and if yes, lower the number
+            if value_diff == diffAxisSE.GetBinLowEdge(value_bin):
+                value_bin -= 1
+            limits.append(value_bin)
     else:
         print("Error in getBinRangeHistos: bin input \"" + str(bins3d) + "\" not a list of ranges!")
         exit()
 
     histos = []
     for n in range(1, len(limits)):
-        name = diff3d + ": [%.2f-%.2f)" % (diffAxisSE.GetBinLowEdge(limits[n - 1]), diffAxisSE.GetBinLowEdge(limits[n]))
+        name = diff3d + ": [%.2f-%.2f)" % (bins3d[n - 1], bins3d[n])
         diffAxisSE.SetRange(limits[n - 1], limits[n])
         diffAxisME.SetRange(limits[n - 1], limits[n])
         se = iSE.Project3D("SE_"+projOpt+"_"+name)
@@ -848,8 +872,13 @@ def reweight(iSE, iME, rew_range):
         se_n = iSE.ProjectionX("se_bin", ybin, ybin)
         me_n = iME.ProjectionX("me_bin", ybin, ybin)
 
-        se_ratio = se_n.Integral(int_min, int_max) / se_int
-        me_ratio = me_n.Integral(int_min, int_max) / me_int
+        se_int = 1
+        me_int = 1
+
+        if se_int:
+            se_ratio = se_n.Integral(int_min, int_max) / se_int
+        if me_int:
+            me_ratio = me_n.Integral(int_min, int_max) / me_int
 
         if me_ratio > 0. and se_ratio > 0.:
             me_n.Scale(se_ratio / me_ratio)
@@ -958,6 +987,7 @@ def config(dic_conf):
                                 'rew3d' -> mult vs mt vs k* 3D differentially in mt and reweighted in mult
             "tftype":       'dca', 'cpa' -> option for the template fit plots
             "templates":    [list of th1 plots] -> list of dca/cpa plots for fitting
+            "templatesFix": list of templates to fix: List with elements of this format: [ NAME , [list of fixed values]], where NAME is the name of the template
             "namelist":     [list of strings] -> names of dca/cpa plots for fitting
             "fitrange":     float -> fitrange for the template fitter
             "normalize":    [float, float] -> normalization range for the correlation function
@@ -994,6 +1024,7 @@ def config(dic_conf):
             "tftype":       None,
             "data":         None,
             "templates":    None,
+            "templatesFix": None,
             "namelist":     None,
             "fitrange":     None,
             "percentile":   None,
@@ -1019,6 +1050,7 @@ def config(dic_conf):
     keys_int    = ['int', 'integrated']
     keys_dif    = ['diff', 'dif', 'differential']
 
+    # initialize values
     entries = ['function',      # function to be used
                'path',          # path to input file
                'fileTDir',      # root folder where getter functions are used
@@ -1148,6 +1180,11 @@ def config(dic_conf):
     # rebin factor/s
     if 'rebin' in dic_conf:
         dic['rebin'] = bin2list(dic_conf['rebin'])
+
+    # fixed templates
+    if 'templatesFix' in dic_conf and dic_conf['templatesFix']:
+        if type(dic_conf['templatesFix'][0]) != list:
+            conf['templatesFix'] = [dic_conf['templatesFix']]
 
     # rewrange
     if 'rewrange' in dic_conf:
