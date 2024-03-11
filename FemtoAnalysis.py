@@ -749,8 +749,8 @@ def getDifferential3D(iSE, iME, diff3d, bins3d, bins, rebin, norm):
     diff3d_histos = getBinRangeHistos3D(iSE, iME, diff3d, bins3d)
 
     htypeSplit2 = ""
-    if diff3d == 'kmult':
-        htypeSplit2 = "kmt"
+    if diff3d == 'mult':
+        htypeSplit2 = "mt"
     elif diff3d == 'mt':
         htypeSplit2 = "mult"
 
@@ -963,6 +963,7 @@ def bin2list(rebin):
     rebin_list.extend(rebin)
     return rebin_list
 
+# generates the proper settings dictionary
 def config(dic_conf):
     """
     This function sets up all the configurable options
