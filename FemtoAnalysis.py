@@ -605,19 +605,26 @@ def getBinRangeHistos(iSE, iME, bins):
         limits = []
         for value_diff in bins:
             value_bin = yAxis.FindBin(float(value_diff))
-            # check if the bin value is the lower edge of the next bin and if yes, lower the number
-            if value_diff == yAxis.GetBinLowEdge(value_bin):
-                value_bin -= 1
             limits.append(value_bin)
     else:
         print("Error in getBinRangeHistos: bin input \"" + str(bins) + "\" not a list of ranges!")
         exit()
 
+
     histos = []
-    for n in range(1, len(limits)):
+    for n in range(1, len(bins)):
+        diff_low = bins[n - 1]
+        diff_up  = bins[n]
+
+        bin_low = xAxis.FindBin(diff_low)
+        bin_up  = xAxis.FindBin(diff_up)
+
+        if diff_up == xAxis.GetBinLowEdge(bin_up):
+            bin_up -= 1
+
         name = "[%.2f-%.2f)" % (bins[n - 1], bins[n])
-        se = iSE.ProjectionX("se_k", limits[n - 1], limits[n])
-        me = iME.ProjectionX("me_k", limits[n - 1], limits[n])
+        se = iSE.ProjectionX("se_k", bin_low, bin_up)
+        me = iME.ProjectionX("me_k", bin_low, bin_up)
         histos.append([name, se.Clone(), me.Clone()])
 
     return histos
@@ -649,9 +656,6 @@ def getBinRangeHistos3D(iSE, iME, diff3d, bins3d):
         limits = []
         for value_diff in bins3d:
             value_bin = diffAxisSE.FindBin(float(value_diff))
-            # check if the bin value is the lower edge of the next bin and if yes, lower the number
-            if value_diff == diffAxisSE.GetBinLowEdge(value_bin):
-                value_bin -= 1
             limits.append(value_bin)
     else:
         print("Error in getBinRangeHistos: bin input \"" + str(bins3d) + "\" not a list of ranges!")
@@ -659,9 +663,19 @@ def getBinRangeHistos3D(iSE, iME, diff3d, bins3d):
 
     histos = []
     for n in range(1, len(limits)):
+
+        diff_low = bins3d[n - 1]
+        diff_up  = bins3d[n]
+
+        bin_low = diffAxisSE.FindBin(diff_low)
+        bin_up  = diffAxisSE.FindBin(diff_up)
+
+        if diff_up == diffAxisSE.GetBinLowEdge(bin_up):
+            bin_up -= 1
+
         name = diff3d + ": [%.2f-%.2f)" % (bins3d[n - 1], bins3d[n])
-        diffAxisSE.SetRange(limits[n - 1], limits[n])
-        diffAxisME.SetRange(limits[n - 1], limits[n])
+        diffAxisSE.SetRange(bin_low, bin_up)
+        diffAxisME.SetRange(bin_low, bin_up)
         se = iSE.Project3D("SE_"+projOpt+"_"+name)
         me = iME.Project3D("ME_"+projOpt+"_"+name)
         histos.append([name, se.Clone(), me.Clone()])

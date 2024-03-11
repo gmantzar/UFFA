@@ -267,7 +267,7 @@ class FemtoDreamSaver(FS.FileSaver):
             dir_root = self._file.mkdir(self._idir)
         dir_root.cd()
 
-        cf_title = syst[0][0][0].GetTitle().replace(":","_").rsplit(' ')
+        cf_title = syst[0][0][0].GetTitle().replace(":", "_").rsplit(' ')
         bin1_title = cf_title[0]
         bin2_title = cf_title[2]
         for n, bin1 in enumerate(syst):
