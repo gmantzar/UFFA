@@ -13,15 +13,18 @@ class ftotal():
         nbin = self.axis.FindBin(arr[0])
         for n in range(len(self.histos)):
             total += par[n]*self.histos[n].GetBinContent(nbin)
+
         return total
 
-def TemplateFit(fname, dca_data, dca_mcplots, dcacpa, dca_mcplots_names, fit_range, pt_bins, dirOut):
+def TemplateFit(fname, dca_data, dca_mcplots, dcacpa, dca_mcplots_names, fit_range, pt_bins, dirOut, fix_temps):
     # Output file
-
     if type(fname) == str:
         ofile = ROOT.TFile(dirOut + "TemplateFit_" + fname, "recreate")
     else:
         ofile = fname
+
+    # color scheme
+    mycolors = [ ROOT.kBlue, ROOT.kRed, ROOT.kBlack, ROOT.kOrange, ROOT.kBlue+7, ROOT.kCyan+1, ROOT.kGray+2, ROOT.kYellow-7 ]
 
     xAxis = dca_data.GetXaxis()
     yAxis = dca_data.GetYaxis()
@@ -64,9 +67,6 @@ def TemplateFit(fname, dca_data, dca_mcplots, dcacpa, dca_mcplots_names, fit_ran
     else:
         print("TemplateFit.py: pt_bins not an int or list of ranges: " + pt_bins)
         exit()
-
-    print(pt_bins)
-    print(pt_rebin)
 
     # titles of the graphs
     pt_names = []
@@ -152,9 +152,21 @@ def TemplateFit(fname, dca_data, dca_mcplots, dcacpa, dca_mcplots_names, fit_ran
         adj = ftotal(data, hDCA_mc)
         ftot = ROOT.TF1("ftot", adj, fitmin, fitmax, dca_ent)
 
-        for i in range(dca_ent):
-            ftot.SetParameter(i, 1. / dca_ent)
-            ftot.SetParLimits(i, 0., 1.)
+        ftot.SetParameter(0, 0.8)
+        ftot.SetParLimits(0, 0., 1.)
+        ftot.SetParameter(1, 0)
+        ftot.SetParLimits(1, 0., 1.)
+        ftot.SetParameter(2, 0.15)
+        ftot.SetParLimits(2, 0., 1.)
+        ftot.SetParameter(3, 0.05)
+        ftot.SetParLimits(3, 0., 1.)
+        #for i in range(1, dca_ent):
+            #ftot.SetParameter(i, 1. / dca_ent)
+            #ftot.SetParLimits(i, 0., 1.)
+            #if fix_temps:
+                #for ii in range(len(fix_temps)):
+                    #if dca_mcplots_names[i] == fix_temps[ii][0]:
+                        #ftot.FixParameter(i, fix_templs[ii][1])
 
         # draw histograms
         data.Fit("ftot", "S, N, R, M", "", fitmin, fitmax)
@@ -209,8 +221,9 @@ def TemplateFit(fname, dca_data, dca_mcplots, dcacpa, dca_mcplots_names, fit_ran
             for i in range(dca_ent):
                 tmp = hDCA_mc[i].Integral(hDCA_mc[i].FindBin(fitmin), hDCA_mc[i].FindBin(fitmax))
                 if mcEntries[n]:
-                    tmp = tmp / mcEntries[n]
-                parDCA_mc[i].append(tmp)
+                    parDCA_mc[i].append(tmp / mcEntries[n])
+                else:
+                    parDCA_mc[i].append(tmp)
 
         # fill x and y lists for graphs
         pt_avg = (xAxis.GetBinLowEdge(pt_range[n][0]) + xAxis.GetBinLowEdge(pt_range[n][1])) / 2
