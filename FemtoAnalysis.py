@@ -27,11 +27,11 @@ def UFFA_cf(settings):
 # template fits
 def UFFA_tf(settings):
     conf = config(settings)
-    if conf['file']:
+    if conf['data']:
+        dca_data = conf['data']
+    elif conf['file']:
         fdr1 = FDR.FemtoDreamReader(conf['fullpath'], conf['fileTDir'])
         dca_data = fdr1.get_dca()
-    elif conf['data']:
-        dca_data = conf['data']
     else:
         print('UFFA_tf: Missing input data!')
     if conf['templates']:
@@ -49,7 +49,7 @@ def UFFA_tf(settings):
         bins = [conf['bins'], conf['rebin']]
     else:
         bins = conf['bins']
-    TF.TemplateFit(ofile, dca_data, dca_mcplots, conf['tftype'], conf['namelist'], conf['fitrange'], bins, conf['outDir'])
+    TF.TemplateFit(ofile, dca_data, dca_mcplots, conf['tftype'], conf['namelist'], conf['fitrange'], bins, conf['outDir'], conf['fixTemplates'])
 
 # systematics
 def UFFA_syst(settings):
@@ -958,6 +958,7 @@ def config(dic_conf):
                                 'rew3d' -> mult vs mt vs k* 3D differentially in mt and reweighted in mult
             "tftype":       'dca', 'cpa' -> option for the template fit plots
             "templates":    [list of th1 plots] -> list of dca/cpa plots for fitting
+            "fixTemplates": list of templates to fix: List with elements of this format: [ NAME , [list of fixed values]], where NAME is the name of the template
             "namelist":     [list of strings] -> names of dca/cpa plots for fitting
             "fitrange":     float -> fitrange for the template fitter
             "normalize":    [float, float] -> normalization range for the correlation function
@@ -994,6 +995,7 @@ def config(dic_conf):
             "tftype":       None,
             "data":         None,
             "templates":    None,
+            "fixTemplates": None,
             "namelist":     None,
             "fitrange":     None,
             "percentile":   None,
@@ -1029,7 +1031,7 @@ def config(dic_conf):
                'namelist',      # list of template histos names
                'fitrange',      # fitrange for templates
                'normalize',     # range to normalize cf
-               'data',          # not used
+               'data',          # manual input of the histogram to fit the templates
                'bins3d',        # bins to split 3d histo
                'bins',          # bins to split 2d histo
                'nameSE',        # root folder with SE histo
@@ -1052,7 +1054,7 @@ def config(dic_conf):
         else:
             dic['path'] = FU.path_expand(path_name[0]) + '/'
             dic['file']  = path_name[1]
-    dic['fullpath'] = dic['path'] + dic['file']
+        dic['fullpath'] = dic['path'] + dic['file']
 
     # output directory
     if 'outDir' in dic_conf:
@@ -1124,6 +1126,15 @@ def config(dic_conf):
                 dic['tftype'] = 'dca'
             elif tftype == 'cpa':
                 dic['tftype'] = 'cpa'
+    
+    # manually input data for tamplate fit
+    if 'data' in dic_conf:
+        dic['data'] = dic_conf['data']
+    else:
+        dic['data'] = None
+
+    if 'fixTemplates' in dic_conf:
+        dic['fixTemplates'] = dic_conf['fixTemplates']
 
     # which axis to be used for the first split in a 3D analysis
     if 'diff3d' in dic_conf:

@@ -13,11 +13,23 @@ class ftotal():
         nbin = self.axis.FindBin(arr[0])
         for n in range(len(self.histos)):
             total += par[n]*self.histos[n].GetBinContent(nbin)
+
+        #MANUAL
+        """
+        total += par[0]*self.histos[0].GetBinContent(nbin)
+        total += par[1]*self.histos[1].GetBinContent(nbin)
+        total += par[2]*self.histos[2].GetBinContent(nbin)
+        total += par[3]*self.histos[3].GetBinContent(nbin)
+        total += par[4]*0.7*self.histos[4].GetBinContent(nbin) #WeakLambda
+        total += par[4]*0.3*self.histos[5].GetBinContent(nbin) #WeakSigma
+        """
         return total
 
-def TemplateFit(fname, dca_data, dca_mcplots, dcacpa, dca_mcplots_names, fit_range, pt_bins, dirOut):
+def TemplateFit(fname, dca_data, dca_mcplots, dcacpa, dca_mcplots_names, fit_range, pt_bins, dirOut, fixTemplates):
     # Output file
 
+    #Define a custom color sheme
+    mycolors = [ ROOT.kBlue, ROOT.kRed, ROOT.kBlack, ROOT.kOrange, ROOT.kBlue+7, ROOT.kCyan+1, ROOT.kGray+2, ROOT.kYellow-7 ]
     if type(fname) == str:
         ofile = ROOT.TFile(dirOut + "TemplateFit_" + fname, "recreate")
     else:
@@ -28,6 +40,7 @@ def TemplateFit(fname, dca_data, dca_mcplots, dcacpa, dca_mcplots_names, fit_ran
     # setup for the bin ranges for the projections
     # output: [(bin1, bin2), (bin2, bin3), ...]
     if type(pt_bins) == int:                                            # input: bins
+        #print("Enter here: (0)")
         pt_ent = pt_bins
         pt_range = []
         for n in range(pt_ent):
@@ -35,6 +48,7 @@ def TemplateFit(fname, dca_data, dca_mcplots, dcacpa, dca_mcplots_names, fit_ran
         pt_rebin = None
     elif type(pt_bins) == list:
         if type(pt_bins[0]) == list and type(pt_bins[1]) == list:       # input: [[bin range], [rebin factors]]
+            #print("Enter here: (1)")
             pt_ent = len(pt_bins[0]) - 1
             pt_range = []
             for i in range(pt_ent):
@@ -43,6 +57,7 @@ def TemplateFit(fname, dca_data, dca_mcplots, dcacpa, dca_mcplots_names, fit_ran
                 pt_range.append((bin_value1, bin_value2))
             pt_rebin = pt_bins[1]
         elif type(pt_bins[0]) == list and type(pt_bins[1]) == int:      # input: [[bin range], rebin factor]
+            #print("Enter here: (2)")
             pt_ent = len(pt_bins[0]) - 1
             pt_range = []
             for i in range(pt_ent):
@@ -51,6 +66,7 @@ def TemplateFit(fname, dca_data, dca_mcplots, dcacpa, dca_mcplots_names, fit_ran
                 pt_range.append((bin_value1, bin_value2))
             pt_rebin = [pt_bins[1]]*pt_ent
         else:                                                           # input: [bin range]
+            #print("Enter here: (3)")
             pt_ent = len(pt_bins) - 1
             pt_range = []
             for i in range(pt_ent):
@@ -101,10 +117,10 @@ def TemplateFit(fname, dca_data, dca_mcplots, dcacpa, dca_mcplots_names, fit_ran
         gDCA_mc[i].SetName(dca_mcplots_names[i])
         gDCA_mc[i].SetTitle(dca_mcplots_names[i])
         gDCA_mc[i].SetLineWidth(2)
-        gDCA_mc[i].SetLineColor(i + 3)
+        gDCA_mc[i].SetLineColor(mycolors[i])
         gDCA_mc[i].SetMarkerStyle(21)
         gDCA_mc[i].SetMarkerSize(1)
-        gDCA_mc[i].SetMarkerColor(i + 3)
+        gDCA_mc[i].SetMarkerColor(mycolors[i])
         gDCA_mc[i].GetXaxis().SetLabelSize(0.05)
         gDCA_mc[i].GetYaxis().SetLabelSize(0.05)
         gDCA_mc[i].GetXaxis().SetTitleSize(0.05)
@@ -112,6 +128,8 @@ def TemplateFit(fname, dca_data, dca_mcplots, dcacpa, dca_mcplots_names, fit_ran
 
     # main loop for fitting
     for n in range(pt_ent):
+        
+        #print("npT "+str(n))
         # canvas for fitting
         canvas = ROOT.TCanvas("canvas_" + str(n + 1), "canvas_" + str(n + 1))
         canvas.SetCanvasSize(1024, 768)
@@ -133,6 +151,7 @@ def TemplateFit(fname, dca_data, dca_mcplots, dcacpa, dca_mcplots_names, fit_ran
         # MC templates
         hDCA_mc = []
         for i in range(dca_ent):
+            #print("iDCA "+str(i))
             hDCA_mc.append(dca_mcplots[i].ProjectionY(dca_mcplots_names[i] + '_' + str(n + 1), pt_range[n][0], pt_range[n][1] - 1))
             if pt_rebin and pt_rebin[n] != 1:
                 hDCA_mc[i].Rebin(pt_rebin[n])
@@ -142,11 +161,16 @@ def TemplateFit(fname, dca_data, dca_mcplots, dcacpa, dca_mcplots_names, fit_ran
 
         # fit function
         adj = ftotal(data, hDCA_mc)
-        ftot = ROOT.TF1("ftot", adj, fitmin, fitmax, dca_ent)
+        ftot = ROOT.TF1("ftot", adj, fitmin, fitmax, dca_ent) #MANUAL -1
 
-        for i in range(dca_ent):
+        for i in range(dca_ent-1): 
             ftot.SetParameter(i, 1. / dca_ent)
             ftot.SetParLimits(i, 0., 1.)
+            #if dca_mcplots_names[i] == "Fake":
+            #    ftot.FixParameter(i, fixTemplates[n])
+            #if dca_mcplots_names[i] == "WrongCollision":
+            #    ftot.FixParameter(i, 0.)
+            
 
         # draw histograms
         data.Fit("ftot", "S, N, R, M", "", fitmin, fitmax)
@@ -154,11 +178,13 @@ def TemplateFit(fname, dca_data, dca_mcplots, dcacpa, dca_mcplots_names, fit_ran
         data.SetLineWidth(2)
         data.Draw("hist")
 
-        for i in range(dca_ent):
+        for i in range(dca_ent): #MANUAL: -1
             hDCA_mc[i].Scale(ftot.GetParameter(i))
-            hDCA_mc[i].SetLineColor(i + 3)
+            hDCA_mc[i].SetLineColor(mycolors[i])
             hDCA_mc[i].SetLineWidth(2)
             hDCA_mc[i].Draw("same")
+        #hDCA_mc[4].Scale(ftot.GetParameter(4)*0.7) #MANUAL
+        #hDCA_mc[5].Scale(ftot.GetParameter(i)*0.3) #MANUAL
 
         htot = hDCA_mc[0].Clone("htot_" + str(n + 1))
         for i in range(1, dca_ent):
