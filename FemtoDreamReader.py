@@ -22,8 +22,10 @@ class FemtoDreamReader(FR.FileReader):
 
     def get_dca_mc(self):
         return [self.GetHisto("Tracks_one_MC/hDCAxy_Primary"), \
-                self.GetHisto("Tracks_one_MC/hDCAxy_DaughterLambda"), \
-                self.GetHisto("Tracks_one_MC/hDCAxy_DaughterSigmaplus"), \
+                self.GetHisto("Tracks_one_MC/hDCAxy_Secondary"), \
+                self.GetHisto("Tracks_one_MC/hDCAxy_SecondaryDaughterLambda"), \
+                self.GetHisto("Tracks_one_MC/hDCAxy_SecondaryDaughterSigmaplus"), \
+                self.GetHisto("Tracks_one_MC/hDCAxy_Fake"), \
                 self.GetHisto("Tracks_one_MC/hDCAxy_Material")]
 
     def get_zvxt(self):

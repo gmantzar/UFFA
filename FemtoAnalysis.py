@@ -49,7 +49,7 @@ def UFFA_tf(settings):
         bins = [conf['bins'], conf['rebin']]
     else:
         bins = conf['bins']
-    TF.TemplateFit(ofile, dca_data, dca_mcplots, conf['tftype'], conf['namelist'], conf['fitrange'], bins, conf['outDir'], conf['templatesFix'])
+    TF.TemplateFit(ofile, dca_data, dca_mcplots, conf['tftype'], conf['namelist'], conf['fitrange'], bins, conf['outDir'], conf['temp_init'], conf['temp_limits'])
 
 # systematics
 def UFFA_syst(settings):
@@ -666,9 +666,14 @@ def getBinRangeHistos3D(iSE, iME, diff3d, bins3d):
 
         diff_low = bins3d[n - 1]
         diff_up  = bins3d[n]
+        print(diff_low, diff_up)
 
         bin_low = diffAxisSE.FindBin(diff_low)
         bin_up  = diffAxisSE.FindBin(diff_up)
+        print(bin_low, bin_up)
+        print("bin_up low edge:", diffAxisSE.GetBinLowEdge(bin_up))
+        print("bin_up - 1 =", bin_up - 1)
+        print("bin_up upper edge:", diffAxisSE.GetBinLowEdge(bin_up))
 
         if diff_up == diffAxisSE.GetBinLowEdge(bin_up):
             bin_up -= 1
@@ -719,6 +724,9 @@ def getDifferential(iSE, iME, htype, bins, rebin, norm, title = None):
     else:
         print("getDifferential: no kmT or kmult input!")
         exit()
+
+    print(htype)
+    print(bins)
 
     mt_histos = getBinRangeHistos(iSE, iME, bins)
     for n, [name, se, me] in enumerate(mt_histos, 1):
@@ -936,6 +944,7 @@ def getProj4d(iSE, iME, perc_range):
     bin_low = axis.FindBin(perc_low)
     bin_up  = axis.FindBin(perc_up)
 
+    # lower the upper bin number if it is right on the next bin's lower edge
     if perc_up == axis.GetBinLowEdge(bin_up):
         bin_up -= 1
 
@@ -1001,7 +1010,8 @@ def config(dic_conf):
                                 'rew3d' -> mult vs mt vs k* 3D differentially in mt and reweighted in mult
             "tftype":       'dca', 'cpa' -> option for the template fit plots
             "templates":    [list of th1 plots] -> list of dca/cpa plots for fitting
-            "templatesFix": list of templates to fix: List with elements of this format: [ NAME , [list of fixed values]], where NAME is the name of the template
+            "temp_init":   list of values to initialize fitting parameters
+            "temp_limits": list of limits of the fitting parameters
             "namelist":     [list of strings] -> names of dca/cpa plots for fitting
             "fitrange":     float -> fitrange for the template fitter
             "normalize":    [float, float] -> normalization range for the correlation function
@@ -1038,7 +1048,8 @@ def config(dic_conf):
             "tftype":       None,
             "data":         None,
             "templates":    None,
-            "templatesFix": None,
+            "temp_init":    None,
+            "temp_limits":  None,
             "namelist":     None,
             "fitrange":     None,
             "percentile":   None,
@@ -1195,10 +1206,15 @@ def config(dic_conf):
     if 'rebin' in dic_conf:
         dic['rebin'] = bin2list(dic_conf['rebin'])
 
-    # fixed templates
-    if 'templatesFix' in dic_conf and dic_conf['templatesFix']:
-        if type(dic_conf['templatesFix'][0]) != list:
-            conf['templatesFix'] = [dic_conf['templatesFix']]
+    # initialization values for fitting templates
+    if 'temp_init' in dic_conf and dic_conf['temp_init']:
+        if type(dic_conf['temp_init'][0]) != list:
+            dic_conf['temp_init'] = [dic_conf['temp_init']]
+
+    # limits for fitting templates
+    if 'temp_limits' in dic_conf and dic_conf['temp_limits']:
+        if type(dic_conf['temp_limits'][0]) == list:
+            dic_conf['temp_limits'] = [dic_conf['temp_limits']]
 
     # rewrange
     if 'rewrange' in dic_conf:

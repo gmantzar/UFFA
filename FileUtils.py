@@ -31,3 +31,9 @@ def file_exists(file):
         file = name + '_' + str(digit) + '.' + ext
     return file
 
+# find bin and if its the lower edge of the next bin, reduce its value
+def find_bin_reduce_on_lower_edge(axis, value):
+    found_bin = axis.FindBin(value)
+    if value == axis.GetBinLowEdge(found_bin):
+        found_bin -= 1
+    return found_bin

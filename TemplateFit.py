@@ -16,7 +16,13 @@ class ftotal():
 
         return total
 
-def TemplateFit(fname, dca_data, dca_mcplots, dcacpa, dca_mcplots_names, fit_range, pt_bins, dirOut, fix_temps):
+def find_bin_reduce_on_lower_edge(axis, value):
+    found_bin = axis.FindBin(value)
+    if value == axis.GetBinLowEdge(found_bin):
+        found_bin -= 1
+    return found_bin
+
+def TemplateFit(fname, dca_data, dca_mcplots, dcacpa, dca_mcplots_names, fit_range, pt_bins, dirOut, temp_init, temp_limits):
     # Output file
     if type(fname) == str:
         ofile = ROOT.TFile(dirOut + "TemplateFit_" + fname, "recreate")
@@ -42,7 +48,7 @@ def TemplateFit(fname, dca_data, dca_mcplots, dcacpa, dca_mcplots_names, fit_ran
             pt_range = []
             for i in range(pt_ent):
                 bin_value1 = xAxis.FindBin(pt_bins[0][i])
-                bin_value2 = xAxis.FindBin(pt_bins[0][i + 1])
+                bin_value2 = find_bin_reduce_on_lower_edge(xAxis, pt_bins[0][i + 1])
                 pt_range.append((bin_value1, bin_value2))
             if (len(pt_bins[1]) > 1):
                 pt_rebin = pt_bins[1]
@@ -53,7 +59,7 @@ def TemplateFit(fname, dca_data, dca_mcplots, dcacpa, dca_mcplots_names, fit_ran
             pt_range = []
             for i in range(pt_ent):
                 bin_value1 = xAxis.FindBin(pt_bins[0][i])
-                bin_value2 = xAxis.FindBin(pt_bins[0][i + 1])
+                bin_value2 = find_bin_reduce_on_lower_edge(xAxis, pt_bins[0][i + 1])
                 pt_range.append((bin_value1, bin_value2))
             pt_rebin = [pt_bins[1]]*pt_ent
         else:                                                           # input: [bin range]
@@ -61,7 +67,7 @@ def TemplateFit(fname, dca_data, dca_mcplots, dcacpa, dca_mcplots_names, fit_ran
             pt_range = []
             for i in range(pt_ent):
                 bin_value1 = xAxis.FindBin(pt_bins[i])
-                bin_value2 = xAxis.FindBin(pt_bins[i + 1])
+                bin_value2 = find_bin_reduce_on_lower_edge(xAxis, pt_bins[i + 1])
                 pt_range.append((bin_value1, bin_value2))
             pt_rebin = None
     else:
@@ -71,7 +77,8 @@ def TemplateFit(fname, dca_data, dca_mcplots, dcacpa, dca_mcplots_names, fit_ran
     # titles of the graphs
     pt_names = []
     for n in range(pt_ent):
-        name = "p_{T} range: [%.3f-%.3f) GeV" % (xAxis.GetBinLowEdge(pt_range[n][0]), xAxis.GetBinLowEdge(pt_range[n][1]))
+        #name = "p_{T} range: [%.3f-%.3f) GeV" % (xAxis.GetBinLowEdge(pt_range[n][0]), xAxis.GetBinLowEdge(pt_range[n][1]))
+        name = "p_{T} range: " + f"[{pt_bins[n]}-{pt_bins[n + 1]}) GeV"
         if pt_rebin:
             name += " rebin: " + str(pt_rebin[n])
         pt_names.append(name)
@@ -152,21 +159,13 @@ def TemplateFit(fname, dca_data, dca_mcplots, dcacpa, dca_mcplots_names, fit_ran
         adj = ftotal(data, hDCA_mc)
         ftot = ROOT.TF1("ftot", adj, fitmin, fitmax, dca_ent)
 
-        ftot.SetParameter(0, 0.8)
-        ftot.SetParLimits(0, 0., 1.)
-        ftot.SetParameter(1, 0)
-        ftot.SetParLimits(1, 0., 1.)
-        ftot.SetParameter(2, 0.15)
-        ftot.SetParLimits(2, 0., 1.)
-        ftot.SetParameter(3, 0.05)
-        ftot.SetParLimits(3, 0., 1.)
-        #for i in range(1, dca_ent):
-            #ftot.SetParameter(i, 1. / dca_ent)
-            #ftot.SetParLimits(i, 0., 1.)
-            #if fix_temps:
-                #for ii in range(len(fix_temps)):
-                    #if dca_mcplots_names[i] == fix_temps[ii][0]:
-                        #ftot.FixParameter(i, fix_templs[ii][1])
+        for i in range(1, dca_ent):
+            ftot.SetParameter(i, 1. / dca_ent)
+            ftot.SetParLimits(i, 0., 1.)
+            if temp_init:
+                ftot.SetParameter(i, temp_init[i])
+            if temp_limits:
+                ftot.SetParLimits(i, temp_limits[i][0], temp_limits[i][1])
 
         # draw histograms
         data.Fit("ftot", "S, N, R, M", "", fitmin, fitmax)
