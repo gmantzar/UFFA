@@ -45,11 +45,8 @@ def UFFA_tf(settings):
 
     fds = FDS.FemtoDreamSaver(settings)
     ofile = fds.getFile()
-    if 'rebin' in conf and conf['rebin']:
-        bins = [conf['bins'], conf['rebin']]
-    else:
-        bins = conf['bins']
-    TF.TemplateFit(ofile, dca_data, dca_mcplots, conf['tftype'], conf['namelist'], conf['fitrange'], bins, conf['outDir'], conf['temp_init'], conf['temp_limits'])
+
+    TF.TemplateFit(ofile, dca_data, dca_mcplots, conf['tftype'], conf['namelist'], conf['fitrange'], conf['bins'], conf['rebin'], conf['outDir'], conf['temp_init'], conf['temp_limits'], conf['temp_fraction'])
 
 # systematics
 def UFFA_syst(settings):
@@ -1024,41 +1021,42 @@ def config(dic_conf):
 
     # settings dictionary skeleton
     dic = {
-            "function":     None,
-            "pair":         None,
-            "path":         "",
-            "file":         None,
-            "fullpath":     None,
-            "fileTDir":     "",
-            "nameSE":       "",
-            "nameME":       "",
-            "newfile":      None,
-            "mc":           None,
-            "mcTDir":       "",
-            "outDir":       "",
-            "rename":       None,
-            "bins":         None,
-            "bins3d":       None,
-            "diff3d":       "",
-            "diff3d2":      "",
-            "yield":        None,
-            "rebin":        None,
-            "atype":        None,
-            "htype":        None,
-            "tftype":       None,
-            "data":         None,
-            "templates":    None,
-            "temp_init":    None,
-            "temp_limits":  None,
-            "namelist":     None,
-            "fitrange":     None,
-            "percentile":   None,
-            "rewrange":     None,
-            "normalize":    None,
-            "include":      None,
-            "exclude":      None,
-            "debug":        False,
-            "interactive":  False
+            "function":         None,
+            "pair":             None,
+            "path":             "",
+            "file":             None,
+            "fullpath":         None,
+            "fileTDir":         "",
+            "nameSE":           "",
+            "nameME":           "",
+            "newfile":          None,
+            "mc":               None,
+            "mcTDir":           "",
+            "outDir":           "",
+            "rename":           None,
+            "bins":             None,
+            "bins3d":           None,
+            "diff3d":           "",
+            "diff3d2":          "",
+            "yield":            None,
+            "rebin":            None,
+            "atype":            None,
+            "htype":            None,
+            "tftype":           None,
+            "data":             None,
+            "templates":        None,
+            "temp_init":        None,
+            "temp_limits":      None,
+            "temp_fraction":    None,
+            "namelist":         None,
+            "fitrange":         None,
+            "percentile":       None,
+            "rewrange":         None,
+            "normalize":        None,
+            "include":          None,
+            "exclude":          None,
+            "debug":            False,
+            "interactive":      False
         }
 
     # keys to set values
@@ -1084,6 +1082,9 @@ def config(dic_conf):
                'rename',        # rename output file
                'templates',     # list of template histos
                'namelist',      # list of template histos names
+               'temp_init',     # initialize template fitting values
+               'temp_limits',   # limits for template fitting parameters
+               'temp_fraction', # set fraction with dictionary {'name', 'temp_init', 'temp_limits'}
                'fitrange',      # fitrange for templates
                'normalize',     # range to normalize cf
                'data',          # not used
@@ -1205,16 +1206,6 @@ def config(dic_conf):
     # rebin factor/s
     if 'rebin' in dic_conf:
         dic['rebin'] = bin2list(dic_conf['rebin'])
-
-    # initialization values for fitting templates
-    if 'temp_init' in dic_conf and dic_conf['temp_init']:
-        if type(dic_conf['temp_init'][0]) != list:
-            dic_conf['temp_init'] = [dic_conf['temp_init']]
-
-    # limits for fitting templates
-    if 'temp_limits' in dic_conf and dic_conf['temp_limits']:
-        if type(dic_conf['temp_limits'][0]) == list:
-            dic_conf['temp_limits'] = [dic_conf['temp_limits']]
 
     # rewrange
     if 'rewrange' in dic_conf:

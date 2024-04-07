@@ -22,57 +22,40 @@ def find_bin_reduce_on_lower_edge(axis, value):
         found_bin -= 1
     return found_bin
 
-def TemplateFit(fname, dca_data, dca_mcplots, dcacpa, dca_mcplots_names, fit_range, pt_bins, dirOut, temp_init, temp_limits):
-    # Output file
-    if type(fname) == str:
-        ofile = ROOT.TFile(dirOut + "TemplateFit_" + fname, "recreate")
-    else:
-        ofile = fname
-
-    # color scheme
-    mycolors = [ ROOT.kBlue, ROOT.kRed, ROOT.kBlack, ROOT.kOrange, ROOT.kBlue+7, ROOT.kCyan+1, ROOT.kGray+2, ROOT.kYellow-7 ]
-
+def TemplateFit(fname, dca_data, dca_templates, dcacpa, dca_names, fit_range, pt_bins, pt_rebin, dirOut, temp_init, temp_limits, temp_fraction):
     xAxis = dca_data.GetXaxis()
     yAxis = dca_data.GetYaxis()
+
+    # Output file
+    ofile = fname
+    if type(fname) == str:
+        ofile = ROOT.TFile(dirOut + "TemplateFit_" + fname, "recreate")
+
+    # initialize list of values if single rebin value was provided
+    if pt_rebin and (len(pt_rebin) < len(pt_bins)):
+        pt_rebin = pt_rebin*len(pt_bins)
+
     # setup for the bin ranges for the projections
     # output: [(bin1, bin2), (bin2, bin3), ...]
-    if type(pt_bins) == int:                                            # input: bins
+    if type(pt_bins) == int:            # int that describes how many bins to individually fit
         pt_ent = pt_bins
         pt_range = []
         for n in range(pt_ent):
-            pt_range.append((n + 1, n + 2))
-        pt_rebin = None
-    elif type(pt_bins) == list:
-        if type(pt_bins[0]) == list and type(pt_bins[1]) == list:       # input: [[bin range], [rebin factors]]
-            pt_ent = len(pt_bins[0]) - 1
-            pt_range = []
-            for i in range(pt_ent):
-                bin_value1 = xAxis.FindBin(pt_bins[0][i])
-                bin_value2 = find_bin_reduce_on_lower_edge(xAxis, pt_bins[0][i + 1])
-                pt_range.append((bin_value1, bin_value2))
-            if (len(pt_bins[1]) > 1):
-                pt_rebin = pt_bins[1]
-            else:
-                pt_rebin = pt_bins[1]*pt_ent
-        elif type(pt_bins[0]) == list and type(pt_bins[1]) == int:      # input: [[bin range], rebin factor]
-            pt_ent = len(pt_bins[0]) - 1
-            pt_range = []
-            for i in range(pt_ent):
-                bin_value1 = xAxis.FindBin(pt_bins[0][i])
-                bin_value2 = find_bin_reduce_on_lower_edge(xAxis, pt_bins[0][i + 1])
-                pt_range.append((bin_value1, bin_value2))
-            pt_rebin = [pt_bins[1]]*pt_ent
-        else:                                                           # input: [bin range]
-            pt_ent = len(pt_bins) - 1
-            pt_range = []
-            for i in range(pt_ent):
-                bin_value1 = xAxis.FindBin(pt_bins[i])
-                bin_value2 = find_bin_reduce_on_lower_edge(xAxis, pt_bins[i + 1])
-                pt_range.append((bin_value1, bin_value2))
-            pt_rebin = None
+            pt_range.append((n + 1, n + 1))
+    elif type(pt_bins) == list:         # list of pt edges
+        pt_ent = len(pt_bins) - 1
+        pt_range = []
+        for i in range(pt_ent):
+            bin_value1 = xAxis.FindBin(pt_bins[i])
+            bin_value2 = find_bin_reduce_on_lower_edge(xAxis, pt_bins[i + 1])
+            pt_range.append((bin_value1, bin_value2))
     else:
         print("TemplateFit.py: pt_bins not an int or list of ranges: " + pt_bins)
         exit()
+
+    # setup for the fraction fitting parameters
+    if type(temp_fraction) == dict:
+        temp_fraction = [temp_fraction]
 
     # titles of the graphs
     pt_names = []
@@ -83,7 +66,7 @@ def TemplateFit(fname, dca_data, dca_mcplots, dcacpa, dca_mcplots_names, fit_ran
             name += " rebin: " + str(pt_rebin[n])
         pt_names.append(name)
 
-    dca_ent = len(dca_mcplots)
+    dca_ent = len(dca_templates)
     if type(dcacpa) == str:
         if dcacpa.lower() == "dca":
             dcacpa = 'dca'
@@ -94,9 +77,18 @@ def TemplateFit(fname, dca_data, dca_mcplots, dcacpa, dca_mcplots_names, fit_ran
 
     # dca cut
     CPAcut = 0.99
+    fitmax = []
+    fitmin = []
     if dcacpa == 'dca':
-        fitmax = fit_range
-        fitmin = -fitmax
+        if type(fit_range) == list:
+            for value in fit_range:
+                fitmax.append(value)
+                fitmin.append(-value)
+            if len(fitmax) < dca_ent:
+                fitmax += fitmax[-1]*(pt_ent - len(fitmax))    # append the last fitrange to be used for the rest of the pt bins
+        else:
+            fitmax = [fit_range]*pt_ent
+            fitmin = [-fit_range]*pt_ent
     else:
         fitmin = 0.9
         fitmax = 1.0
@@ -108,20 +100,20 @@ def TemplateFit(fname, dca_data, dca_mcplots, dcacpa, dca_mcplots_names, fit_ran
     mcEntries = []
     parDCA_mc = []
     gDCA_mc = []
-    for i in range(dca_ent):
+    for n in range(dca_ent):
         parDCA_mc.append([])
         gDCA_mc.append(ROOT.TGraph(pt_ent - 1))
-        gDCA_mc[i].SetName(dca_mcplots_names[i])
-        gDCA_mc[i].SetTitle(dca_mcplots_names[i])
-        gDCA_mc[i].SetLineWidth(2)
-        gDCA_mc[i].SetLineColor(i + 3)
-        gDCA_mc[i].SetMarkerStyle(21)
-        gDCA_mc[i].SetMarkerSize(1)
-        gDCA_mc[i].SetMarkerColor(i + 3)
-        gDCA_mc[i].GetXaxis().SetLabelSize(0.05)
-        gDCA_mc[i].GetYaxis().SetLabelSize(0.05)
-        gDCA_mc[i].GetXaxis().SetTitleSize(0.05)
-        gDCA_mc[i].GetXaxis().SetTitle("<p_{T}> (GeV)")
+        gDCA_mc[n].SetName(dca_names[n])
+        gDCA_mc[n].SetTitle(dca_names[n])
+        gDCA_mc[n].SetLineWidth(2)
+        gDCA_mc[n].SetLineColor(n + 3)
+        gDCA_mc[n].SetMarkerStyle(21)
+        gDCA_mc[n].SetMarkerSize(1)
+        gDCA_mc[n].SetMarkerColor(n + 3)
+        gDCA_mc[n].GetXaxis().SetLabelSize(0.05)
+        gDCA_mc[n].GetYaxis().SetLabelSize(0.05)
+        gDCA_mc[n].GetXaxis().SetTitleSize(0.05)
+        gDCA_mc[n].GetXaxis().SetTitle("<p_{T}> (GeV)")
 
     # main loop for fitting
     for n in range(pt_ent):
@@ -132,14 +124,14 @@ def TemplateFit(fname, dca_data, dca_mcplots, dcacpa, dca_mcplots_names, fit_ran
         ROOT.gPad.SetLogy()
 
         # data
-        data = dca_data.ProjectionY("hDCAxy_" + str(n + 1), pt_range[n][0], pt_range[n][1] - 1)
+        data = dca_data.ProjectionY("hDCAxy_" + str(n + 1), pt_range[n][0], pt_range[n][1])
         if pt_rebin and pt_rebin[n] != 1:
             data.Rebin(pt_rebin[n])
-        data.SetAxisRange(fitmin, fitmax)
+        data.SetAxisRange(fitmin[n], fitmax[n])
         if dcacpa == "cpa":
             data_int = data.Integral(data.FindBin(CPAcut), data.FindBin(1))
         else:
-            data_int = data.Integral(data.FindBin(fitmin), data.FindBin(fitmax))
+            data_int = data.Integral(data.FindBin(fitmin[n]), data.FindBin(fitmax[n]))
         dataEntries.append(data_int)
         if data.Integral():
             data.Scale(1. / data.Integral())
@@ -147,28 +139,42 @@ def TemplateFit(fname, dca_data, dca_mcplots, dcacpa, dca_mcplots_names, fit_ran
         # MC templates
         hDCA_mc = []
         for i in range(dca_ent):
-            hDCA_mc.append(dca_mcplots[i].ProjectionY(dca_mcplots_names[i] + '_' + str(n + 1), pt_range[n][0], pt_range[n][1] - 1))
+            hDCA_mc.append(dca_templates[i].ProjectionY(dca_names[i] + '_' + str(n + 1), pt_range[n][0], pt_range[n][1]))
             if pt_rebin and pt_rebin[n] != 1:
                 hDCA_mc[i].Rebin(pt_rebin[n])
-            hDCA_mc[i].SetAxisRange(fitmin, fitmax)
+            hDCA_mc[i].SetAxisRange(fitmin[n], fitmax[n])
             hDCA_mc[i].SetTitle(pt_names[n])
             if hDCA_mc[i].Integral():
                 hDCA_mc[i].Scale(1. / hDCA_mc[i].Integral())
 
         # fit function
         adj = ftotal(data, hDCA_mc)
-        ftot = ROOT.TF1("ftot", adj, fitmin, fitmax, dca_ent)
+        ftot = ROOT.TF1("ftot", adj, fitmin[n], fitmax[n], dca_ent)
 
-        for i in range(1, dca_ent):
+        for i in range(dca_ent):
             ftot.SetParameter(i, 1. / dca_ent)
             ftot.SetParLimits(i, 0., 1.)
+
             if temp_init:
                 ftot.SetParameter(i, temp_init[i])
             if temp_limits:
                 ftot.SetParLimits(i, temp_limits[i][0], temp_limits[i][1])
+            if temp_fraction:
+                for entry in temp_fraction:
+                    if entry['temp_name'] == dca_names[i]:
+                        if entry['temp_init']:
+                            ftot.SetParameter(i, entry['temp_init'][n])
+                            ftot.SetParLimits(i, entry['temp_init'][n], entry['temp_init'][n])
+                        if entry['temp_limits']:
+                            if type(entry['temp_limits'][n]) == list:
+                                ftot.SetParLimits(i, entry['temp_limits'][n][0], entry['temp_limits'][n][1])
+                            else:
+                                if entry['temp_limits'][n] == 0 and not entry['temp_init']:
+                                    if not entry['temp_init']:
+                                        ftot.FixParameter(i, 0)
 
         # draw histograms
-        data.Fit("ftot", "S, N, R, M", "", fitmin, fitmax)
+        data.Fit("ftot", "S, N, R, M", "", fitmin[n], fitmax[n])
         data.SetLineColor(1)
         data.SetLineWidth(2)
         data.Draw("hist")
@@ -198,7 +204,7 @@ def TemplateFit(fname, dca_data, dca_mcplots, dcacpa, dca_mcplots_names, fit_ran
         legend.AddEntry(data, "total", "l")
         legend.AddEntry(htot, "fit", "l")
         for i in range(dca_ent):
-            legend.AddEntry(hDCA_mc[i], dca_mcplots_names[i], "l")
+            legend.AddEntry(hDCA_mc[i], dca_names[i], "l")
         legend.Draw()
 
         # write to file
@@ -211,14 +217,14 @@ def TemplateFit(fname, dca_data, dca_mcplots, dcacpa, dca_mcplots_names, fit_ran
         if dcacpa == "cpa":
             htot_int = htot.Integral(htot.FindBin(CPAcut), htot.FindBin(1))
         else:
-            htot_int = htot.Integral(htot.FindBin(fitmin), htot.FindBin(fitmax))
+            htot_int = htot.Integral(htot.FindBin(fitmin[n]), htot.FindBin(fitmax[n]))
         mcEntries.append(htot_int)
         if dcacpa == "cpa":
             for i in range(dca_ent):
                 parDCA_mc[i].append(hDCA_mc[i].Integral(hDCA_mc[i].FindBin(CPAcut), hDCA_mc[i].FindBin(1)) / mcEntries[n])
         else:
             for i in range(dca_ent):
-                tmp = hDCA_mc[i].Integral(hDCA_mc[i].FindBin(fitmin), hDCA_mc[i].FindBin(fitmax))
+                tmp = hDCA_mc[i].Integral(hDCA_mc[i].FindBin(fitmin[n]), hDCA_mc[i].FindBin(fitmax[n]))
                 if mcEntries[n]:
                     parDCA_mc[i].append(tmp / mcEntries[n])
                 else:
@@ -306,7 +312,7 @@ def TemplateFit(fname, dca_data, dca_mcplots, dcacpa, dca_mcplots_names, fit_ran
     primAvg.Draw("same")
 
     for i in range(dca_ent):
-        print("%-12s %.6f" % (dca_mcplots_names[i], m2ent[i] / m2tot))
+        print("%-12s %.6f" % (dca_names[i], m2ent[i] / m2tot))
 
     ofile.cd()
     for i in range(dca_ent):
