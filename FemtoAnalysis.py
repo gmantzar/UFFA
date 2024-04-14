@@ -3,7 +3,7 @@ import FileUtils as FU
 import FemtoDreamSaver as FDS
 import FemtoDreamReader as FDR
 import CorrelationHandler as CH
-import TemplateFit as TF
+import CombinedTemplateFit as TF
 
 def UFFA(settings):
     conf = config(settings)
@@ -11,6 +11,8 @@ def UFFA(settings):
         UFFA_cf(conf)
     elif conf['function'] == 'tf':
         UFFA_tf(conf)
+    elif conf['function'] == 'ctf':
+        UFFA_ctf(conf)
     elif conf['function'] == 'syst':
         if conf['htype'] in ['mtmult', 'rew3d', '4d', 'rew4d']:
             UFFA_syst_3d(conf)
@@ -47,6 +49,30 @@ def UFFA_tf(settings):
     ofile = fds.getFile()
 
     TF.TemplateFit(ofile, dca_data, dca_mcplots, conf['tftype'], conf['namelist'], conf['fitrange'], conf['bins'], conf['rebin'], conf['outDir'], conf['temp_init'], conf['temp_limits'], conf['temp_fraction'])
+
+# combined template fits
+def UFFA_ctf(settings):
+    conf = config(settings)
+    if conf['file']:
+        fdr1 = FDR.FemtoDreamReader(conf['fullpath'], conf['fileTDir'])
+        dca_data = fdr1.get_dca()
+    elif conf['data']:
+        dca_data = conf['data']
+    else:
+        print('UFFA_tf: Missing input data!')
+    if conf['templates']:
+        if type(conf['templates']) == str:
+            fdr2 = FDR.FemtoDreamReader(conf['templates'], conf['mcTDir'])
+            dca_mcplots = fdr2.get_dca_mc()
+        else:
+            dca_mcplots = conf['templates']
+    else:
+        dca_mcplots = fdr1.get_dca_mc()
+
+    fds = FDS.FemtoDreamSaver(settings)
+    ofile = fds.getFile()
+
+    TF.CombinedFit(ofile, conf['outDir'], dca_data, dca_mcplots, conf['namelist'], conf['fitrange'], conf['bins'], conf['rebin'], conf['temp_init'], conf['temp_limits'], conf['temp_fraction'])
 
 # systematics
 def UFFA_syst(settings):
@@ -683,12 +709,6 @@ def getBinRangeHistos3D(iSE, iME, diff3d, bins3d):
         histos.append([name, se.Clone(), me.Clone()])
 
     return histos
-
-# calculate purity
-def getPurity(hPt, hPt_mc):
-    ratio = hPt.Clone("hPt_ratio")
-    ratio.Divide(hPt_mc)
-    return ratio
 
 # helper function for the CF
 # output: [se, me, cf]

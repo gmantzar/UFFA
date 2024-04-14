@@ -28,8 +28,10 @@ class FemtoDreamSaver(FS.FileSaver):
         FS.FileSaver.setDebug(self._debug)
         if self._func == 'cf':
             self._save_cf()
-        elif self._func == 'tf':
+        elif self._func in ['tf']:
             self._save_tf()
+        elif self._func in ['ctf']:
+            self._save_ctf()
         elif self._func == 'syst':
             if self._htype in ['mtmult', 'rew3d', '4d', 'rew4d']:
                 self._save_syst_3d()
@@ -204,6 +206,11 @@ class FemtoDreamSaver(FS.FileSaver):
     def _save_tf(self):
         # create the output file
         self._create_output("TemplateFit_")
+
+    # saver for UFFA_ctf()
+    def _save_ctf(self):
+        # create the output file
+        self._create_output("CombinedFit_")
 
     # saver for UFFA_cf()
     def _save_syst(self):

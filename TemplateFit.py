@@ -1,5 +1,4 @@
 import ROOT
-import FemtoDreamSaver as FDS
 import FemtoAnalysis as FA
 import array as arr
 
@@ -279,6 +278,7 @@ def TemplateFit(fname, dca_data, dca_templates, dcacpa, dca_names, fit_range, pt
     fractions.SetFrameBorderMode(0)
     fractions.SetMargin(0.15, 0.05, 0.2, 0.05)
 
+    # fraction graph
     gEmpty = gDCA_mc[0]
     gEmpty.SetTitle("")
     gEmpty.SetFillStyle(1000)
@@ -305,6 +305,7 @@ def TemplateFit(fname, dca_data, dca_templates, dcacpa, dca_names, fit_range, pt
         line = ROOT.TLine(xAxis.GetBinLowEdge(pt_range[i][0]), parDCA_mc[0][i], xAxis.GetBinLowEdge(pt_range[i][1]), parDCA_mc[0][i])
         line.DrawClone("same")
 
+    # primary average
     primAvg = ROOT.TF1("primAvg", "[0]", 0, 5)
     primAvg.SetParameter(0, m2ent[0] / m2tot)
     primAvg.SetLineColor(12)
