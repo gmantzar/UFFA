@@ -136,7 +136,7 @@ def get_input_templates_from_thn(name_temp, tdir, namelist, pt_bins, fitrange):
     return temps_cut, fitrange
 
 # returns absolute fractions of DCAxy and DCAz
-def get_abs_yield(name_temps, tdir, namelist, target, pt_bins, fitrange):
+def get_rel_yield(name_temps, tdir, namelist, target, pt_bins, fitrange):
     temps, fitrange = get_input_templates_from_thn(name_temps, tdir, namelist, pt_bins, fitrange)
     temps = temps[0]
     xAxis = temps[0].GetXaxis()
