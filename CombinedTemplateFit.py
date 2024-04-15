@@ -138,16 +138,16 @@ def get_input_templates_from_thn(name_temp, tdir, namelist, pt_bins, fitrange):
 # returns absolute fractions of DCAxy and DCAz
 def get_rel_yield(name_temps, tdir, namelist, target, pt_bins, fitrange):
     temps, fitrange = get_input_templates_from_thn(name_temps, tdir, namelist, pt_bins, fitrange)
+    xAxis = temps[0][0].GetXaxis()
     temps = temps[0]
-    xAxis = temps[0].GetXaxis()
     pt_range, pt_count = setup_pt(xAxis, pt_bins)
-
-    temps_total = temps[0].Clone()
-    temps_total.Reset()
 
     temp_counter = range(len(temps))
     for ntemp in temp_counter:
-        temps[ntemp] = temps[ntemp].ProjectionX()
+        temps[ntemp] = temps[ntemp].ProjectionX().Clone(f"hDCA_proj_{namelist[ntemp]}")
+
+    temps_total = temps[0].Clone()
+    temps_total.Reset()
 
     temp_list = ROOT.TList()
     for ntemp in temp_counter:
