@@ -38,20 +38,18 @@ def find_bin_reduce_on_lower_edge(axis, value):
         found_bin -= 1
     return found_bin
 
-def get_input_templates_from_thn(name_data, name_temp, tdir, namelist, pt_bins, fitrange):
-    dim_counter = range(2)
-    temp_counter = range(len(namelist))
-    labels = ['xy', 'z']
-    data_file  = FR.FileReader(name_data, tdir)
-    temps_file = FR.FileReader(name_temp, tdir)
-    data  = [data_file.GetHisto(f"hDCA{label}", "Tracks") for label in labels]
-    temps = [temps_file.GetHisto(f"hDCAxy_{name}", "Tracks_MC") for name in namelist]
-    xAxis = data[0].GetXaxis()
+# merge templates from given list and return list where the merged template is in the first provided index
+def merge_templates(temps, newname, index1, index2):
+    merged = temps[index1].Clone(newname)
+    merged.Add(temps[index2])
+    newlist = temps[0:index1] + [merged] + temps[index1 + 1:index2] + temps[index2 + 1:]
+    return newlist
 
-    # setup for the bin ranges for the projections
+# prepare pt bin ranges for splitting pt bins
+def get_pt_bin_ranges(axis, pt_bins):
     # output: [(bin1, bin2), (bin2, bin3), ...]
+    pt_count = 0
     pt_range = []
-    pt_count = None
     if type(pt_bins) == int:            # int that describes how many bins to individually fit
         pt_count = pt_bins
         for n in range(pt_count):
@@ -59,31 +57,67 @@ def get_input_templates_from_thn(name_data, name_temp, tdir, namelist, pt_bins, 
     elif type(pt_bins) == list:         # list of pt edges
         pt_count = len(pt_bins) - 1
         for n in range(pt_count):
-            bin_value1 = xAxis.FindBin(pt_bins[n])
-            bin_value2 = find_bin_reduce_on_lower_edge(xAxis, pt_bins[n + 1])
+            bin_value1 = axis.FindBin(pt_bins[n])
+            bin_value2 = find_bin_reduce_on_lower_edge(axis, pt_bins[n + 1])
             pt_range.append((bin_value1, bin_value2))
+    return pt_range, pt_count
 
-    # prepare fit ranges for xy and z
-    if type(fitrange) != list:                  # fitrange = 0.5
-        fitrange = [fitrange]*(len(pt_range) - 1)
-        fitrange = [fitrange, fitrange]
-    elif type(fitrange[0]) != list:             # fitrange = [2.5, 1.5, 0.5]  (for 3 pt bins)
-        if len(fitrange) < pt_count:
-            fitrange += [fitrange[-1]]*(pt_count - len(fitrange))
-        fitrange = [fitrange, fitrange]
-    elif type(fitrange[0]) == list and len(fitrange) == 2:          # fitrange = [[range_xy], [range_z]]
-        if len(fitrange[0]) < (pt_range - 1):
-            fitrange[0] += fitrange[0][-1]*(pt_count - len(fitrange[0]))
-        if len(fitrange[1]) < (pt_range - 1):
-            fitrange[1] += fitrange[1][-1]*(pt_count - len(fitrange[1]))
+# setup function for pt
+def setup_pt(axis, pt_bins):
+    pt_count, pt_range = None, None
+    if type(pt_bins[0]) == tuple:
+        pt_count = len(pt_bins)
+        pt_range = pt_bins
+    else:
+        pt_range, pt_count = get_pt_bin_ranges(axis, pt_bins)
+    return pt_range, pt_count
 
+# setup of the fitting ranges for the given pt bins
+def setup_fitrange(fitrange, pt_count):
+    if type(fitrange) != list:
+        fitrange = [(-fitrange, fitrange)]*pt_count
+    elif type(fitrange) == list:
+        if type(fitrange[0]) not in [list, tuple]:
+            if len(fitrange) < pt_count:
+                fitrange += [fitrange[-1]]*(pt_count - len(fitrange))
+            fitrange = [(-fitrange[n], fitrange[n]) for n in range(len(fitrange))]
+    return fitrange
+
+# obtain fractions from purity th1 plot
+def get_fractions_from_purity(pt_bins, hpurity):
+    pt_range, pt_count = setup_pt(hpurity.GetXaxis(), pt_bins)
+    purity = []
+    for npt in range(pt_count):
+        pt_int = hpurity.Integral(pt_range[npt][0], pt_range[npt][1])
+        purity.append(1 - (pt_int / (pt_range[npt][1] + 1 - pt_range[npt][0])))
+    return purity
+
+# returns th2 (dca-pt) distributions from a list of thn's to be used as input for the combined fitter
+def get_input_templates_from_thn(name_temp, tdir, namelist, pt_bins, fitrange):
+    dim_counter = range(2)
+    temp_counter = range(len(namelist))
+    labels = ['xy', 'z']
+
+    # get templates
+    temps_file = FR.FileReader(name_temp, tdir)
+    temps = [temps_file.GetHisto(f"hDCAxy_{name}", "Tracks_MC") for name in namelist]
+
+    # setup for the bin ranges for the projections
+    xAxis = temps[0].GetAxis(0)
+    pt_range, pt_count = setup_pt(xAxis, pt_bins)
+
+    # setup of the fitting ranges for the given pt bins
+    fitrange = setup_fitrange(fitrange, pt_count)
+
+    # prepare empty histograms
     temps_cut = [[] for dim in dim_counter]
     for dim in dim_counter:
         for ntemp in temp_counter:
-            temps_cut[dim].append(temps[dim].Projection(dim + 1, 0).Clone())
+            temps_cut[dim].append(temps[dim].Clone(f"empty_{dim}_{ntemp}").Projection(dim + 1, 0).Clone(f"hDCA{labels[dim]}_{namelist[ntemp]}"))
             temps_cut[dim][ntemp].Reset()
             temps_cut[dim][ntemp].SetDirectory(0)
 
+    # generate input th2 templates
     for dim in dim_counter:
         for ntemp in temp_counter:
             proj_list = ROOT.TList()
@@ -91,15 +125,51 @@ def get_input_templates_from_thn(name_data, name_temp, tdir, namelist, pt_bins, 
                 thn = temps[ntemp].Clone()
                 thn.GetAxis(0).SetRange(pt_range[npt][0], pt_range[npt][1])
                 ax1 = thn.GetAxis(1)
-                ax1.SetRange(ax1.FindBin(-fitrange[0][npt]), find_bin_reduce_on_lower_edge(ax1, fitrange[0][npt]))
+                ax1.SetRange(ax1.FindBin(fitrange[npt][0]), find_bin_reduce_on_lower_edge(ax1, fitrange[npt][1]))
                 ax2 = thn.GetAxis(2)
-                ax2.SetRange(ax2.FindBin(-fitrange[1][npt]), find_bin_reduce_on_lower_edge(ax2, fitrange[1][npt]))
+                ax2.SetRange(ax2.FindBin(fitrange[npt][0]), find_bin_reduce_on_lower_edge(ax2, fitrange[npt][1]))
                 proj = thn.Projection(dim + 1, 0)
                 proj.SetName(f"proj_{labels[dim]}_{ntemp}_{npt}")
                 proj_list.Add(proj)
             temps_cut[dim][ntemp].Merge(proj_list)
 
     return temps_cut, fitrange
+
+# returns absolute fractions of DCAxy and DCAz
+def get_abs_yield(name_temps, tdir, namelist, target, pt_bins, fitrange):
+    temps, fitrange = get_input_templates_from_thn(name_temps, tdir, namelist, pt_bins, fitrange)
+    temps = temps[0]
+    xAxis = temps[0].GetXaxis()
+    pt_range, pt_count = setup_pt(xAxis, pt_bins)
+
+    temps_total = temps[0].Clone()
+    temps_total.Reset()
+
+    temp_counter = range(len(temps))
+    for ntemp in temp_counter:
+        temps[ntemp] = temps[ntemp].ProjectionX()
+
+    temp_list = ROOT.TList()
+    for ntemp in temp_counter:
+        temp_list.Add(temps[ntemp].Clone())
+    temps_total.Merge(temp_list)
+
+    index = 0
+    if type(target) == int:
+        index = target
+    elif type(target) == str:
+        if target in namelist:
+            index = namelist.index(target)
+
+    temps_target = temps[index].Clone()
+    temps_target.Divide(temps_total.Clone())
+
+    fractions = []
+    for npt in range(pt_count):
+        pt_int = temps_target.Integral(pt_range[npt][0], pt_range[npt][1]) / (pt_range[npt][1] - pt_range[npt][0] + 1)
+        fractions.append(pt_int)
+
+    return fractions
 
 def CombinedFit(fname, dir_out, dca_data, dca_templates, dca_names, fit_range, pt_bins, pt_rebin, temp_init, temp_limits, temp_fraction):
     # constants
@@ -141,20 +211,7 @@ def CombinedFit(fname, dir_out, dca_data, dca_templates, dca_names, fit_range, p
 
     # setup for the bin ranges for the projections
     # output: [(bin1, bin2), (bin2, bin3), ...]
-    if type(pt_bins) == int:            # int that describes how many bins to individually fit
-        pt_count = pt_bins
-        pt_range = []
-        for n in range(pt_count):
-            pt_range.append((n + 1, n + 1))
-    elif type(pt_bins) == list:         # list of pt edges
-        pt_count = len(pt_bins) - 1
-        pt_range = []
-        for n in range(pt_count):
-            bin_value1 = xAxis.FindBin(pt_bins[n])
-            bin_value2 = find_bin_reduce_on_lower_edge(xAxis, pt_bins[n + 1])
-            pt_range.append((bin_value1, bin_value2))
-    else:
-        print("TemplateFit.py: pt_bins not an int or list of ranges: ", pt_bins)
+    pt_range, pt_count = setup_pt(xAxis, pt_bins)
 
     # setup for the fraction fitting parameters
     if type(temp_fraction) == dict:
@@ -169,17 +226,13 @@ def CombinedFit(fname, dir_out, dca_data, dca_templates, dca_names, fit_range, p
         pt_names.append(name)
 
     # setup of the fitting ranges for the given pt bins
-    fitmax, fitmin = [], []
-    if type(fit_range) == list:
-        for value in fit_range:
-            fitmax.append(value)
-            fitmin.append(-value)
-        if len(fitmax) < pt_count:
-            fitmax += [fit_range[-1]]*(pt_count - len(fitmax))    # append the last fitrange to be used for the rest of the pt bins
-            fitmin += [-fit_range[-1]]*(pt_count - len(fitmax))
-    else:
-        fitmax = [fit_range]*pt_count
-        fitmin = [-fit_range]*pt_count
+    if type(fit_range) != list:
+        fit_range = [(-fit_range, fit_range)]*pt_count
+    elif type(fit_range) == list:
+        if type(fit_range[0]) not in [list, tuple]:
+            if len(fit_range) < pt_count:
+                fit_range += [fit_range[-1]]*(pt_count - len(fit_range))
+            fit_range = [(-fit_range[n], fit_range[n]) for n in range(len(fit_range))]
 
     # graph initialization for fractions
     temp_graph = [[ROOT.TGraph(pt_count - 1) for ntemp in temp_counter] for nfit in fit_counter]
@@ -201,11 +254,12 @@ def CombinedFit(fname, dir_out, dca_data, dca_templates, dca_names, fit_range, p
                 temp_graph[nfit][ntemp].SetMarkerColor(color_temp[dca_names[ntemp]])
 
     ### fitting loop ###
-    chi_graph = [ROOT.TGraph(pt_count - 1) for nfit in fit_counter]
+    chi_graph = [ROOT.TGraph(pt_count) for nfit in fit_counter]
     data_ent = [[] for nfit in fit_counter]
     temp_ent = [[] for nfit in fit_counter]
     par_ent = [[[] for ntemp in temp_counter] for nfit in fit_counter]
     m2ent = [[0]*temp_count for nfit in fit_counter]
+    total_chi2 = ROOT.TGraph(pt_count)
     for n in range(pt_count):
         # canvas for fitting
         canvas_arr = [ROOT.TCanvas(f"{names_for_saving[nfit]}_canvas_{n + 1}", f"{names_for_saving[nfit]}_canvas_{n + 1}") for nfit in fit_counter]
@@ -219,8 +273,8 @@ def CombinedFit(fname, dir_out, dca_data, dca_templates, dca_names, fit_range, p
             data.append(dca_data[nfit].ProjectionY(f"{names_for_saving[nfit]}_{n + 1}", pt_range[n][0], pt_range[n][1]))
             if pt_rebin and pt_rebin[n] != 1:
                 data[nfit].Rebin(pt_rebin[n])
-            data[nfit].SetAxisRange(fitmin[n], fitmax[n])
-            data_ent[nfit].append(data[nfit].Integral(data[nfit].FindBin(fitmin[n]), data[nfit].FindBin(fitmax[n])))
+            data[nfit].SetAxisRange(fit_range[n][0], fit_range[n][1])
+            data_ent[nfit].append(data[nfit].Integral(data[nfit].FindBin(fit_range[n][0]), data[nfit].FindBin(fit_range[n][1])))
             if data[nfit].Integral():
                 data[nfit].Scale(1. / data[nfit].Integral())
 
@@ -231,7 +285,7 @@ def CombinedFit(fname, dir_out, dca_data, dca_templates, dca_names, fit_range, p
                 temp_hist[nfit].append(dca_templates[nfit][ntemp].ProjectionY(f"{names_for_saving[nfit]}_{dca_names[ntemp]}_{n + 1}", pt_range[n][0], pt_range[n][1]))
                 if pt_rebin and pt_rebin[n] != 1:
                     temp_hist[nfit][ntemp].Rebin(pt_rebin[n])
-                temp_hist[nfit][ntemp].SetAxisRange(fitmin[n], fitmax[n])
+                temp_hist[nfit][ntemp].SetAxisRange(fit_range[n][0], fit_range[n][1])
                 temp_hist[nfit][ntemp].SetTitle(pt_names[n])
                 if temp_hist[nfit][ntemp].Integral():
                     temp_hist[nfit][ntemp].Scale(1. / temp_hist[nfit][ntemp].Integral())
@@ -239,14 +293,14 @@ def CombinedFit(fname, dir_out, dca_data, dca_templates, dca_names, fit_range, p
         # setup data for wrappers
         data_opt = ROOT.Fit.DataOptions()
         data_range = ROOT.Fit.DataRange()
-        data_range.SetRange(fitmin[n], fitmax[n])
+        data_range.SetRange(fit_range[n][0], fit_range[n][1])
         data_wrapped = [ROOT.Fit.BinData(data_opt, data_range) for nfit in fit_counter]
         for nfit in fit_counter:
             ROOT.Fit.FillData(data_wrapped[nfit], data[nfit])
 
         # fit functions
         fit_objs = [ftotal(data[nfit], temp_hist[nfit]) for nfit in fit_counter]
-        fit_funcs = [ROOT.TF1(f"{names_for_saving[nfit]}_ftot", fit_objs[nfit], fitmin[n], fitmax[n], temp_count) for nfit in fit_counter]
+        fit_funcs = [ROOT.TF1(f"{names_for_saving[nfit]}_ftot", fit_objs[nfit], fit_range[n][0], fit_range[n][1], temp_count) for nfit in fit_counter]
         fit_wrapped = [ROOT.Math.WrappedMultiTF1(fit_funcs[nfit], temp_count) for nfit in fit_counter]
         fit_chi2 = [ROOT.Fit.Chi2Function(data_wrapped[nfit], fit_wrapped[nfit]) for nfit in fit_counter]
         chi2 = global_chi2(fit_chi2, temp_count)
@@ -286,6 +340,10 @@ def CombinedFit(fname, dir_out, dca_data, dca_templates, dca_names, fit_range, p
 
         for nfit in fit_counter:
             fit_funcs[nfit].SetFitResult(result, np.array(temp_counter, dtype=np.int32))
+            # rerun the fit function on the data with fixed parameters to calculate the chi2
+            for ntemp in temp_counter:
+                fit_funcs[nfit].FixParameter(ntemp, fit_funcs[nfit].GetParameter(ntemp))
+            data[nfit].Fit(f"{names_for_saving[nfit]}_ftot", "S, N, R, M", "", fit_range[n][0], fit_range[n][1])
 
         # drawing
         for nfit in fit_counter:
@@ -342,9 +400,9 @@ def CombinedFit(fname, dir_out, dca_data, dca_templates, dca_names, fit_range, p
 
         # fractions
         for nfit in fit_counter:
-            temp_ent[nfit].append(htot[nfit].Integral(htot[nfit].FindBin(fitmin[n]), htot[nfit].FindBin(fitmax[n])))
+            temp_ent[nfit].append(htot[nfit].Integral(htot[nfit].FindBin(fit_range[n][0]), htot[nfit].FindBin(fit_range[n][1])))
             for ntemp in temp_counter:
-                tmp = temp_hist[nfit][ntemp].Integral(temp_hist[nfit][ntemp].FindBin(fitmin[n]), temp_hist[nfit][ntemp].FindBin(fitmax[n]))
+                tmp = temp_hist[nfit][ntemp].Integral(temp_hist[nfit][ntemp].FindBin(fit_range[n][0]), temp_hist[nfit][ntemp].FindBin(fit_range[n][1]))
                 if temp_ent[nfit][n]:
                     par_ent[nfit][ntemp].append(tmp / temp_ent[nfit][n])
                 else:
@@ -353,11 +411,11 @@ def CombinedFit(fname, dir_out, dca_data, dca_templates, dca_names, fit_range, p
         # fill qa graphs
         pt_avg = (xAxis.GetBinLowEdge(pt_range[n][0]) + xAxis.GetBinLowEdge(pt_range[n][1])) / 2
         for nfit in fit_counter:
-            chi2_own = 0
-            #for nbin in range(1, data[])
             chi_graph[nfit].SetPoint(n, pt_avg, fit_funcs[nfit].GetChisquare() / (fit_funcs[nfit].GetNDF()))
             for ntemp in temp_counter:
                 temp_graph[nfit][ntemp].SetPoint(n, pt_avg, par_ent[nfit][ntemp][n])
+            fit_funcs[nfit].SetFitResult(result, np.array(temp_counter, dtype=np.int32))
+        total_chi2.SetPoint(n, pt_avg, fit_funcs[0].GetChisquare() / fit_funcs[0].GetNDF())
 
     # canvas for chi2
     chi_canvas = [ROOT.TCanvas(f"{names_for_saving[nfit]}_chi_canvas", f"{names_for_saving[nfit]}_chi_canvas", 1024, 768) for nfit in fit_counter]
@@ -408,7 +466,7 @@ def CombinedFit(fname, dir_out, dca_data, dca_templates, dca_names, fit_range, p
         empty_graph[nfit].Draw("alp")
         for ntemp in range(1, temp_count):
             temp_graph[nfit][ntemp].Draw("lp same")
-        for ntemp in temp_counter:
+        for ntemp in range(1):
             for n in range(pt_count):
                 line = ROOT.TLine(xAxis.GetBinLowEdge(pt_range[n][0]), par_ent[nfit][ntemp][n], xAxis.GetBinLowEdge(pt_range[n][1]), par_ent[nfit][ntemp][n])
                 line.DrawClone("same")
@@ -440,12 +498,14 @@ def CombinedFit(fname, dir_out, dca_data, dca_templates, dca_names, fit_range, p
     ofile.cd()
     for nfit in fit_counter:
         odirs[nfit].cd()
-        for ntemp in temp_counter:
-            temp_graph[nfit][ntemp].Write()
         chi_graph[nfit].Write("chi2/ndf")
-        fractions_canvas[nfit].Write()
-        for ntemp in temp_counter:
-            averages[nfit][ntemp].Write()
+    ofile.cd()
+    for ntemp in temp_counter:
+        temp_graph[0][ntemp].Write()
+    for ntemp in temp_counter:
+        averages[0][ntemp].Write()
+    fractions_canvas[nfit].Write()
+    total_chi2.Write("total chi2/ndf")
     ofile.Close()
 
 def TemplateFit(fname, dca_data, dca_templates, dcacpa, dca_names, fit_range, pt_bins, pt_rebin, dirOut, temp_init, temp_limits, temp_fraction):
