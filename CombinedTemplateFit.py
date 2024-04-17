@@ -45,6 +45,19 @@ def merge_templates(temps, newname, index1, index2):
     newlist = temps[0:index1] + [merged] + temps[index1 + 1:index2] + temps[index2 + 1:]
     return newlist
 
+# normalize, reweight and merge histograms
+def merge_templates_weighted(newname, temp1, temp2, weight1, weight2):
+    hist1 = temp1.Clone(newname)
+    hist2 = temp2.Clone()
+    hist1.Scale(1/hist1.Integral())
+    hist2.Scale(1/hist2.Integral())
+    if weight1:
+        hist1.Scale(weight1)
+    if weight2:
+        hist2.Scale(weight2)
+    hist1.Add(hist2)
+    return hist1
+
 # prepare pt bin ranges for splitting pt bins
 def get_pt_bin_ranges(axis, pt_bins):
     # output: [(bin1, bin2), (bin2, bin3), ...]
@@ -366,10 +379,10 @@ def CombinedFit(fname, dir_out, dca_data, dca_templates, dca_names, fit_range, p
         for nfit in fit_counter:
             canvas_arr[nfit].cd()
             ROOT.gPad.SetLogy()
-            data[nfit].Draw("hist")
-            htot[nfit].Draw("same")
+            data[nfit].Draw("h")
+            htot[nfit].Draw("h same")
             for ntemp in temp_counter:
-                temp_hist[nfit][ntemp].Draw("same")
+                temp_hist[nfit][ntemp].Draw("h same")
 
         # legend
         legend = ROOT.TLegend(0.15, 0.40, 0.35, 0.8)
@@ -504,8 +517,8 @@ def CombinedFit(fname, dir_out, dca_data, dca_templates, dca_names, fit_range, p
         temp_graph[0][ntemp].Write()
     for ntemp in temp_counter:
         averages[0][ntemp].Write()
-    fractions_canvas[nfit].Write()
     total_chi2.Write("total chi2/ndf")
+    fractions_canvas[nfit].Write()
     ofile.Close()
 
 def TemplateFit(fname, dca_data, dca_templates, dcacpa, dca_names, fit_range, pt_bins, pt_rebin, dirOut, temp_init, temp_limits, temp_fraction):
