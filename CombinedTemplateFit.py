@@ -520,7 +520,7 @@ def CombinedFit(fname, dir_out, dca_data, dca_templates, dca_names, fit_range, p
     for ntemp in temp_counter:
         averages[0][ntemp].Write()
     total_chi2.Write("total chi2/ndf")
-    fractions_canvas[nfit].Write()
+    fractions_canvas[nfit].Write("DCA_fractions")
     ofile.Close()
 
 def TemplateFit(fname, dca_data, dca_templates, dcacpa, dca_names, fit_range, pt_bins, pt_rebin, dirOut, temp_init, temp_limits, temp_fraction):
