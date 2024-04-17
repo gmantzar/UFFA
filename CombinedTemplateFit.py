@@ -516,7 +516,7 @@ def CombinedFit(fname, dir_out, dca_data, dca_templates, dca_names, fit_range, p
         chi_graph[nfit].Write("chi2/ndf")
     ofile.cd()
     for ntemp in temp_counter:
-        temp_graph[0][ntemp].Write(f"hDCA_{namelist[ntemp]}")
+        temp_graph[0][ntemp].Write(f"hDCA_{dca_names[ntemp]}")
     for ntemp in temp_counter:
         averages[0][ntemp].Write()
     total_chi2.Write("total chi2/ndf")
