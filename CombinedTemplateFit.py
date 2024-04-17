@@ -290,6 +290,8 @@ def CombinedFit(fname, dir_out, dca_data, dca_templates, dca_names, fit_range, p
             data_ent[nfit].append(data[nfit].Integral(data[nfit].FindBin(fit_range[n][0]), data[nfit].FindBin(fit_range[n][1])))
             if data[nfit].Integral():
                 data[nfit].Scale(1. / data[nfit].Integral())
+            data[nfit].SetLineColor(color_data)
+            data[nfit].SetLineWidth(2)
 
         # setup templates
         temp_hist = [[] for nfit in fit_counter]
@@ -373,7 +375,7 @@ def CombinedFit(fname, dir_out, dca_data, dca_templates, dca_names, fit_range, p
         for nfit in fit_counter:
             for ntemp in range(1, temp_count):
                 htot[nfit].Add(temp_hist[nfit][ntemp])
-            htot[nfit].SetLineColor(2)
+            htot[nfit].SetLineColor(color_fit)
             htot[nfit].SetLineWidth(2)
 
         for nfit in fit_counter:
