@@ -48,7 +48,7 @@ def UFFA_tf(settings):
     fds = FDS.FemtoDreamSaver(settings)
     ofile = fds.getFile()
 
-    TF.TemplateFit(ofile, dca_data, dca_mcplots, conf['tftype'], conf['namelist'], conf['fitrange'], conf['bins'], conf['rebin'], conf['outDir'], conf['temp_init'], conf['temp_limits'], conf['temp_fraction'])
+    TF.TemplateFit(ofile, dca_data, dca_mcplots, conf['tftype'], conf['namelist'], conf['fitrange'], conf['signalrange'], conf['bins'], conf['rebin'], conf['outDir'], conf['temp_init'], conf['temp_limits'], conf['temp_fraction'], conf['print'])
 
 # combined template fits
 def UFFA_ctf(settings):
@@ -72,7 +72,7 @@ def UFFA_ctf(settings):
     fds = FDS.FemtoDreamSaver(settings)
     ofile = fds.getFile()
 
-    TF.CombinedFit(ofile, conf['outDir'], dca_data, dca_mcplots, conf['namelist'], conf['fitrange'], conf['bins'], conf['rebin'], conf['temp_init'], conf['temp_limits'], conf['temp_fraction'])
+    TF.CombinedFit(ofile, conf['outDir'], dca_data, dca_mcplots, conf['namelist'], conf['fitrange'], conf['signalrange'], conf['bins'], conf['rebin'], conf['temp_init'], conf['temp_limits'], conf['temp_fraction'], conf['print'])
 
 # systematics
 def UFFA_syst(settings):
@@ -1037,6 +1037,7 @@ def config(dic_conf):
             "exclude":      "string" or [list of strings] -> exclude these variations in the systematics
             "interactive":  'True', 'False' -> include/exclude interactively variations in terminal
             "debug":        'True', 'False' -> debug information in console
+            "print":        'True', 'False' -> print canvas as png
     """
 
     # settings dictionary skeleton
@@ -1076,7 +1077,8 @@ def config(dic_conf):
             "include":          None,
             "exclude":          None,
             "debug":            False,
-            "interactive":      False
+            "print":            False,
+            "interactive":      False,
         }
 
     # keys to set values
@@ -1105,7 +1107,8 @@ def config(dic_conf):
                'temp_init',     # initialize template fitting values
                'temp_limits',   # limits for template fitting parameters
                'temp_fraction', # set fraction with dictionary {'name', 'temp_init', 'temp_limits'}
-               'fitrange',      # fitrange for templates
+               'fitrange',      # fit range for templates
+               'signalrange',   # signal range to evaluate template fractions
                'normalize',     # range to normalize cf
                'data',          # not used
                'bins3d',        # bins to split 3d histo
@@ -1254,53 +1257,11 @@ def config(dic_conf):
     if 'debug' in dic_conf:
         dic['debug'] = bool(dic_conf['debug'])
 
+    if 'print' in dic_conf:
+        dic['print'] = bool(dic_conf['print'])
+
     if 'interactive' in dic_conf:
         dic['interactive'] = bool(dic_conf['interactive'])
 
     return dic
-
-# debug class
-class cDEBUG():
-    def __init__(self):
-        self.n = 0
-        self.x = 2
-        self.y = 1
-        self.N = 2
-        self.h = 1024
-        self.w = 768
-        self.i = 0
-        self.canvas = None
-
-    def setSize(self, h, w):
-        self.h = h
-        self.w = w
-
-    def divide(self, x, y):
-        self.x = x
-        self.y = y
-        self.N = x * y
-
-    def makeCanvas(self):
-        self.canvas = ROOT.TCanvas("c", "c")
-        self.canvas.SetCanvasSize(self.h, self.w)
-        self.canvas.Divide(self.x, self.y)
-        self.canvas.SetWindowSize(self.w + (self.w - self.canvas.GetWw()), self.h + (self.h - self.canvas.GetWh()));
-
-    def add(self, histo, n = None):
-        if n:
-            self.canvas.cd(n)
-            histo.Draw()
-        elif self.n < self.N:
-            self.n += 1
-            self.canvas.cd(self.n)
-            histo.Draw()
-        else:
-            return None
-
-    def update(self):
-        self.canvas.Update()
-
-    def print(self):
-        self.canvas.SaveAs("cDEBUG_" + str(self.i) + ".pdf")
-        self.i += 1
 
