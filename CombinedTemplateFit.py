@@ -5,7 +5,8 @@ import array as arr
 import numpy as np
 import ctypes
 
-# fitting object to be passed to tf1
+### classes ###
+# fitting object for tf1
 class ftotal:
     def __init__(self, data, mcdata):
         self.data = data
@@ -21,21 +22,21 @@ class ftotal:
 
         return total
 
-# fitting object to be passed to tf1
-class ftotal_chi2:
+# fitting object for tf2
+class ftotal2d:
     def __init__(self, data, mcdata):
         self.data = data
+        self.x = data.GetXaxis()
+        self.y = data.GetYaxis()
         self.histos = mcdata
-        self.axis = data.GetXaxis()
         self.ent = len(mcdata)
 
-    def __call__(self, arr, par):
-        nbin = self.axis.FindBin(arr[0])
-        total = self.data.GetbinContent(nbin)
-        error = self.data.GetBinError(nbin)**2
+    def __call__(self, val, par):
+        binx = self.x.FindBin(val[0])
+        biny = self.y.FindBin(val[1])
+        total = 0
         for ntemp in range(len(self.histos)):
-            total -= par[ntemp]*self.histos[ntemp].GetBinContent(nbin)
-            error += self.histos[ntemp].GetBinError(nbin)**2
+            total += par[ntemp]*self.histos[ntemp].GetBinContent(binx, biny)
 
         return total
 
@@ -52,6 +53,7 @@ class global_chi2:
         total = sum([self.fits[n](par_arr_arr[n]) for n in range(len(self.fits))])
         return total
 
+### functions ###
 # finds the given bin on the axis and if its on the edge of the next bin, reduces the bin number
 def find_bin_reduce_on_lower_edge(axis, value):
     found_bin = axis.FindBin(value)
@@ -59,19 +61,16 @@ def find_bin_reduce_on_lower_edge(axis, value):
         found_bin -= 1
     return found_bin
 
-# merge templates from given list and return list where the merged template is in the first provided index
-def merge_templates(temps, newname, index1, index2):
-    merged = temps[index1].Clone(newname)
-    merged.Add(temps[index2])
-    newlist = temps[0:index1] + [merged] + temps[index1 + 1:index2] + temps[index2 + 1:]
-    return newlist
-
 # normalize, reweight and merge histograms
 def merge_templates_weighted(newname, temp1, temp2, weight1, weight2):
     hist1 = temp1.Clone(newname)
     hist2 = temp2.Clone()
-    hist1.Scale(1/hist1.Integral())
-    hist2.Scale(1/hist2.Integral())
+    if hist1.InheritsFrom("THnBase"):
+        hist1.Scale(1/hist1.Projection(0).Integral())
+        hist2.Scale(1/hist2.Projection(0).Integral())
+    else:
+        hist1.Scale(1/hist1.Integral())
+        hist2.Scale(1/hist2.Integral())
     if weight1:
         hist1.Scale(weight1)
     if weight2:
@@ -116,9 +115,23 @@ def setup_colors():
 def setup_rebin(pt_rebin, pt_count):
     if type(pt_rebin) in [int, float]:
         pt_rebin = [pt_rebin]*pt_count
+    if type(pt_rebin) == list and len(pt_rebin) == 1:
+        pt_rebin = pt_rebin*pt_count
     if type(pt_rebin) == list:
         if len(pt_rebin) < pt_count:
             pt_rebin += [pt_rebin[-1]] * (pt_count - len(pt_rebin))
+    return pt_rebin
+
+# setup rebin factors for xy vs z dca histos
+def setup_rebin_xyz(pt_rebin, pt_count):
+    if type(pt_rebin) in [int, float] or (type(pt_rebin) == list and len(pt_rebin) == 1):
+        pt_rebin = setup_rebin(pt_rebin, pt_count)
+        pt_rebin = [pt_rebin, pt_rebin]
+    if type(pt_rebin) == list and len(pt_rebin) == 2:
+        rebin1 = setup_rebin(pt_rebin[0], pt_count)
+        rebin2 = setup_rebin(pt_rebin[1], pt_count)
+        pt_rebin = [rebin1, rebin2]
+    return pt_rebin
 
 # setup function for pt ranges
 def setup_pt(axis, pt_bins):
@@ -129,6 +142,19 @@ def setup_pt(axis, pt_bins):
     else:
         pt_range, pt_count = get_pt_bin_ranges(axis, pt_bins)
     return pt_range, pt_count
+
+# titles of the graphs
+def setup_pt_names(pt_bins, pt_rebin, pt_count):
+    pt_names = []
+    for npt in range(pt_count):
+        name = "p_{T} #in " + f"[{pt_bins[npt]} - {pt_bins[npt + 1]}) GeV"
+        if pt_rebin:
+            if type(pt_rebin) in [int, float]:
+                name += f" - rebin {pt_rebin[npt]}"
+            else:
+                name += f" - rebin xy-{pt_rebin[0][npt]} z-{pt_rebin[1][npt]}"
+        pt_names.append(name)
+    return pt_names
 
 # setup of the fitting ranges for the given pt bins
 def setup_fit_range(fitrange, pt_count):
@@ -146,10 +172,14 @@ def setup_fit_range_xyz(fitrange, pt_count):
     if type(fitrange) in [int, float]:
         fitrange = setup_fit_range(fitrange, pt_count)
         fitrange = [fitrange, fitrange]
-    if type(fitrange) == list and len(fitrange) == 2:
+    elif type(fitrange) == list and len(fitrange) == 2:
         fitrange1 = setup_fit_range(fitrange[0], pt_count)
         fitrange2 = setup_fit_range(fitrange[1], pt_count)
         fitrange = [fitrange1, fitrange2]
+    elif type(fitrange) == list and type(fitrange[0]) == tuple:
+        if len(fitrange) < pt_count:
+            fitrange += [fitrange[-1]] * (pt_count - len(fitrange))
+        fitrange = [fitrange, fitrange]
     return fitrange
 
 # setup signal range
@@ -161,12 +191,13 @@ def setup_signal_range(signal_range):
 # setup signal range for xy and z
 def setup_signal_range_xyz(signal_range):
     if type(signal_range) in [int, float]:
-        signal_range = [-signal_range, signal_range]
+        signal_range = setup_signal_range(signal_range)
+        signal_range = [signal_range, signal_range]
     if type(signal_range) == list and len(signal_range) == 2:
         if type(signal_range[0]) in [int, float]:
-            signal_range = [signal_range, signal_range]
-        elif type(signal_range[0]) == list and len(signal_range) < 2:
-            signal_range = [signal_range, signal_range]
+            signal_range1 = setup_signal_range(signal_range[0])
+            signal_range2 = setup_signal_range(signal_range[1])
+            signal_range = [signal_range1, signal_range2]
     return signal_range
 
 # setup signal range as bin number
@@ -205,6 +236,15 @@ def setup_temp_dict(temp_dict, pt_count):
 
     return temp_dict
 
+# rename input names to something short
+def rename_input_names(input_names):
+    for n, name in enumerate(input_names):
+        if name == "SecondaryDaughterLambda":
+            input_names[n] = "SecLambda"
+        if name == "SecondaryDaughterSigmaplus":
+            input_names[n] = "SecSigmaPlus"
+    return input_names
+
 # obtain fractions from purity th1 plot
 def get_fractions_from_purity(hpurity, pt_bins):
     pt_range, pt_count = setup_pt(hpurity.GetXaxis(), pt_bins)
@@ -222,7 +262,7 @@ def project_th8_to_th4(data):
     th4 = th8.Projection(4, ndims, "")
     return th4.Clone("hDCA_th4")
 
-# apply xy, z cuts to pt for thn8 histos
+# apply xy, z cuts to pt for th4 histos
 def apply_dca_cuts_thn(data, dim, fit_range, pt_bins):
     labels = ['', 'xy', 'z']        # dim 1 = xy, dim 2 = z
     axis_pt = data.GetAxis(0)
@@ -251,6 +291,31 @@ def apply_dca_cuts_thn(data, dim, fit_range, pt_bins):
     data_proj.Merge(proj_list)
 
     return data_proj
+
+# applies xy and z cuts and splits thn in pt for the 2d fitter
+def apply_dca_cuts_split_in_pt(input_thn, name, fitrange, pt_bins):
+    pt_range, pt_count = setup_pt(input_thn.GetAxis(0), pt_bins)
+    fitrange = setup_fit_range_xyz(fitrange, pt_count)
+
+    histos = []
+    for npt in range(pt_count):
+        thn = input_thn.Clone()
+        axis_pt = thn.GetAxis(0)
+        axis_xy = thn.GetAxis(1)
+        axis_zz = thn.GetAxis(2)
+
+        axis_pt.SetRange(pt_range[npt][0], pt_range[npt][1])
+        axis_xy.SetRange(axis_xy.FindBin(fitrange[0][npt][0]), find_bin_reduce_on_lower_edge(axis_xy, fitrange[0][npt][1]))
+        axis_zz.SetRange(axis_zz.FindBin(fitrange[1][npt][0]), find_bin_reduce_on_lower_edge(axis_zz, fitrange[1][npt][1]))
+
+        proj_xyz = thn.Projection(1, 2)
+        proj_xyz.SetName(f"hDCA_xyz_{npt}")
+        if name:
+            proj_xyz.SetName(f"hDCA_xyz_{name}_{npt}")
+
+        histos.append(proj_xyz)
+
+    return histos
 
 # convert fraction to template weight
 def convert_fraction_to_weight(data, temp, fraction, fit_range, signal_range):
@@ -355,25 +420,7 @@ def get_rel_yield(name_temps, tdir, namelist, target, pt_bins, fitrange):
 
     return fractions
 
-# internal function
-def _setup_tgraphs(dca_names, temp_colors, pt_count):
-    empty_graphs = [ROOT.TGraph(pt_count - 1) for ntemp in range(len(titles))]
-    for ntemp in range(len(titles)):
-        empty_graphs[n].SetName(dca_names[n])
-        empty_graphs[n].SetTitle(dca_names[n])
-        empty_graphs[n].SetLineWidth(2)
-        empty_graphs[n].SetLineColor(n + 3)
-        empty_graphs[n].SetMarkerStyle(21)
-        empty_graphs[n].SetMarkerSize(2)
-        empty_graphs[n].SetMarkerColor(n + 3)
-        empty_graphs[n].GetXaxis().SetLabelSize(0.05)
-        empty_graphs[n].GetYaxis().SetLabelSize(0.05)
-        empty_graphs[n].GetXaxis().SetTitleSize(0.05)
-        empty_graphs[n].GetXaxis().SetTitle("<p_{T}> (GeV)")
-        if dca_names[n] in color_temp:
-            empty_graphs[n].SetLineColor(color_temp[dca_names[n]])
-            empty_graphs[n].SetMarkerColor(color_temp[dca_names[n]])
-
+### fitters ###
 def CombinedFit(fname, dir_out, dca_data, dca_templates, dca_names, fit_range, signal_range, pt_bins, pt_rebin, temp_init, temp_limits, temp_fraction, print_canvas):
     # constants
     fit_count = len(dca_templates)
@@ -1044,4 +1091,383 @@ def TemplateFit(fname, dca_data, dca_templates, dcacpa, dca_names, fit_range, si
         fractions.SaveAs("hDCA_fractions.png")
     primAvg.Write()
 
+def TemplateFit2D(fname, dca_data, dca_templates, dca_names, fit_range, signal_range, pt_bins, pt_rebin, dirOut, temp_init, temp_limits, temp_fraction, print_canvas, debug):
+    # setup data
+    if dca_data.InheritsFrom("THnBase") and dca_data.GetNdimensions() == 9:
+        dca_data = project_th8_to_th4(dca_data)
+
+    for ntemp, temp in enumerate(dca_templates):
+        if temp.InheritsFrom("THnBase") and temp.GetNdimensions() == 9:
+            dca_templates[ntemp] = project_th8_to_th4(temp)
+
+    # constants
+    ofile = ROOT.TFile(dirOut + "TemplateFit2D_" + fname, "recreate") if type(fname) == str else fname
+    if debug:
+        debug_dir = ofile.mkdir("debug")
+    pt_axis = dca_data.GetAxis(0)
+    temp_count = len(dca_templates)
+    temp_counter = range(temp_count)
+
+    # color palette
+    ROOT.gStyle.SetOptStat(0)
+    color_data, color_fit, color_temp = setup_colors()
+
+    # parameter setup
+    dca_names = rename_input_names(dca_names)                       # shorten input names
+    pt_range, pt_count = setup_pt(pt_axis, pt_bins)                 # pt ranges and number of entries
+    pt_rebin = setup_rebin_xyz(pt_rebin, pt_count)                  # setup rebin factors for each pt range
+    pt_names = setup_pt_names(pt_bins, pt_rebin, pt_count)          # setup the title for each pt range
+    fitrange = setup_fit_range_xyz(fit_range, pt_count)             # setup the fitrange for each pt range
+    signal_range = setup_signal_range_xyz(signal_range)             # setup the signal range
+    temp_fraction = setup_temp_dict(temp_fraction, pt_count)        # setup init and limit values for fractions
+
+    # print debug information
+    if debug:
+        print("dca_names:    ", dca_names)
+        print("pt_range:     ", pt_range)
+        print("fitrange:     ", fitrange)
+        print("signal_range: ", signal_range)
+
+    # apply dca cuts to data
+    data_xyz = apply_dca_cuts_split_in_pt(dca_data, None, fitrange, pt_bins)
+    temp_xyz = [[] for ntemp in temp_counter]
+    for ntemp in temp_counter:
+        temp_xyz[ntemp].extend(apply_dca_cuts_split_in_pt(dca_templates[ntemp], dca_names[ntemp], fitrange, pt_bins))
+
+    # graph initialization
+    gChi = ROOT.TGraph(pt_count)
+    gChi_signal = ROOT.TGraph(pt_count)
+    data_entries, temp_entries = [], []
+    temp_pars = [[] for ntemp in temp_counter]
+    m2ent = [0 for ntemp in temp_counter]
+    temp_graphs = _setup_tgraphs(dca_names, color_temp, pt_count)
+
+    ### main loop for fitting ###
+    for npt in range(pt_count):
+        # canvas for fitting
+        canvas = ROOT.TCanvas(f"canvas_{npt + 1}", f"canvas_{npt + 1}")
+        canvas.SetCanvasSize(1440, 720)
+        canvas.Divide(2, 1)
+        ROOT.gPad.SetLogz()
+
+        # data
+        data = data_xyz[npt]
+        if pt_rebin and pt_rebin[0][npt] != 1:
+            data.RebinX(pt_rebin[0][npt])
+        if pt_rebin and pt_rebin[1][npt] != 1:
+            data.RebinY(pt_rebin[1][npt])
+        data_int = data.Integral()
+        data_entries.append(data_int)
+        if data.GetSumw2N() == 0:
+            data.Sumw2(ROOT.kTRUE)
+        if data_int:
+            data.Scale(1. / data_int)
+
+        # MC templates
+        temp_histos = []
+        for ntemp in temp_counter:
+            temp_histos.append(temp_xyz[ntemp][npt])
+            if pt_rebin and pt_rebin[0][npt] != 1:
+                temp_histos[ntemp].RebinX(pt_rebin[0][npt])
+            if pt_rebin and pt_rebin[1][npt] != 1:
+                temp_histos[ntemp].RebinY(pt_rebin[1][npt])
+            temp_histos[ntemp].SetTitle(pt_names[npt])
+            temp_int = temp_histos[ntemp].Integral()
+            if temp_histos[ntemp].GetSumw2N() == 0:
+                temp_histos[ntemp].Sumw2(ROOT.kTRUE)
+            if temp_int:
+                temp_histos[ntemp].Scale(1. / temp_int)
+
+        # fit function
+        fit_obj = ftotal2d(data, temp_histos)
+        fitter = ROOT.TF2("fitter", fit_obj, fitrange[0][npt][0], fitrange[0][npt][1], fitrange[1][npt][0], fitrange[1][npt][1], temp_count)
+
+        # initialize fitting parameters
+        for ntemp in temp_counter:
+            fitter.SetParameter(ntemp, 1. / temp_count)
+            fitter.SetParLimits(ntemp, 0., 1.)
+
+            if temp_init:
+                fitter.SetParameter(ntemp, temp_init[ntemp])
+            if temp_limits:
+                fitter.SetParLimits(ntemp, temp_limits[ntemp][0], temp_limits[ntemp][1])
+
+            if temp_fraction:
+                for entry in temp_fraction:
+                    if entry['temp_name'] == dca_names[ntemp]:
+                        if entry['temp_init']:
+                            fitter.SetParameter(ntemp, entry['temp_init'][npt])
+                            if entry['temp_limits'] == 0:
+                                fitter.FixParameter(ntemp, entry['temp_init'][npt])
+                            if type(entry['temp_limits']) == list and entry['temp_limits'][npt][1] == 0:
+                                fitter.FixParameter(ntemp, entry['temp_init'][npt])
+                        else:
+                            if entry['temp_limits'] == 0:
+                                fitter.FixParameter(ntemp, 0)
+                        if entry['temp_limits']:
+                            if type(entry['temp_limits']) == list and entry['temp_limits'][npt][1] == 0:
+                                fitter.FixParameter(ntemp, 0)
+                            else:
+                                fitter.SetParLimits(ntemp, entry['temp_limits'][npt][0], entry['temp_limits'][npt][1])
+
+        # set data error to sqrt of sum of weights of data and temps
+        for nbinx in range(data.GetNbinsX()):
+            for nbiny in range(data.GetNbinsY()):
+                error = data.GetBinError(nbinx, nbiny)**2
+                for ntemp in temp_counter:
+                    error += temp_histos[ntemp].GetBinError(nbinx, nbiny)**2
+                error = error**0.5
+                #data.SetBinError(nbinx, nbiny, error)
+
+        # draw histograms
+        data.Fit("fitter", "S, N, R, M", "")
+        data.SetLineColor(color_data)
+        data.SetLineWidth(2)
+        data.SetTitle(pt_names[npt])
+
+        for ntemp in temp_counter:
+            temp_histos[ntemp].Scale(fitter.GetParameter(ntemp))
+            temp_histos[ntemp].SetLineColor(ntemp + 3)
+            temp_histos[ntemp].SetLineWidth(2)
+            if dca_names[ntemp] in color_temp:
+                temp_histos[ntemp].SetLineColor(color_temp[dca_names[ntemp]])
+                temp_histos[ntemp].SetMarkerColor(color_temp[dca_names[ntemp]])
+
+        # total th2 fit
+        htot = temp_histos[0].Clone(f"htot_{npt + 1}")
+        for ntemp in range(1, temp_count):
+            htot.Add(temp_histos[ntemp])
+        htot.SetLineColor(color_fit)
+        htot.SetLineWidth(2)
+
+        # xy th1 fit
+        canvas.cd(1)
+        data.ProjectionX().Draw("h")
+        for ntemp in temp_counter:
+            temp_histos[ntemp].ProjectionX().Draw("h same")
+
+        htotx = temp_histos[0].ProjectionX().Clone(f"htotx_{npt + 1}")
+        for ntemp in range(1, temp_count):
+            htotx.Add(temp_histos[ntemp].ProjectionX())
+        htotx.SetLineColor(color_fit)
+        htotx.SetLineWidth(2)
+        htotx.Draw("h same")
+
+        # z th1 fit
+        canvas.cd(2)
+        data.ProjectionY().Draw("h")
+        for ntemp in temp_counter:
+            temp_histos[ntemp].ProjectionY().Draw("h same")
+
+        htoty = temp_histos[0].ProjectionY().Clone(f"htoty_{npt + 1}")
+        for ntemp in range(1, temp_count):
+            htoty.Add(temp_histos[ntemp].ProjectionY())
+        htoty.SetLineColor(color_fit)
+        htoty.SetLineWidth(2)
+        htoty.Draw("h same")
+
+        # legend
+        legend = ROOT.TLegend(0.15, 0.40, 0.35, 0.8)
+        legend.SetTextSize(0.05)
+        legend.SetBorderSize(0)
+        legend.SetLineColor(1)
+        legend.SetLineWidth(1)
+        legend.SetFillColor(0)
+        legend.SetFillStyle(0)
+
+        legend.AddEntry(data, "total", "l")
+        legend.AddEntry(htot, "fit", "l")
+        for ntemp in temp_counter:
+            legend.AddEntry(temp_histos[ntemp], dca_names[ntemp], "l")
+        canvas.cd(1)
+        legend.Draw()
+        canvas.cd(2)
+        legend.Draw()
+
+        # write to file
+        ofile.cd()
+        newdir = ofile.mkdir(f"pt_{pt_bins[npt]}-{pt_bins[npt + 1]}")
+        newdir.cd()
+        for ntemp in temp_counter:
+            temp_histos[ntemp].Write()
+        canvas.Write()
+        if print_canvas:
+            canvas.SaveAs(f"{canvas.GetName()}.png")
+        ofile.cd()
+
+        # fractions
+        binx_low = htot.GetXaxis().FindBin(signal_range[1][0])
+        biny_low = htot.GetYaxis().FindBin(signal_range[0][0])
+        binx_up = find_bin_reduce_on_lower_edge(htot.GetXaxis(), signal_range[1][1])
+        biny_up = find_bin_reduce_on_lower_edge(htot.GetXaxis(), signal_range[0][1])
+        htot_int = htot.Integral(binx_low, binx_up, biny_low, biny_up)
+        temp_entries.append(htot_int)
+        for ntemp in temp_counter:
+            tmp = temp_histos[ntemp].Integral(binx_low, binx_up, biny_low, biny_up)
+            if temp_entries[npt]:
+                temp_pars[ntemp].append(tmp / temp_entries[npt])
+            else:
+                temp_pars[ntemp].append(tmp)
+
+        # fill x and y lists for graphs
+        pt_avg = (pt_axis.GetBinLowEdge(pt_range[npt][0]) + pt_axis.GetBinLowEdge(pt_range[npt][1] + 1)) / 2
+        for i in temp_counter:
+            temp_graphs[i].SetPoint(npt, pt_avg, temp_pars[i][npt])
+        if fitter.GetNDF():
+            gChi.SetPoint(npt, pt_avg, fitter.GetChisquare() / (fitter.GetNDF()))
+
+        # save debug plots
+        if debug:
+            newdir = debug_dir.mkdir(f"pt_{pt_bins[npt]}-{pt_bins[npt + 1]}")
+            newdir.cd()
+            data.Write()
+            for ntemp in temp_counter:
+                temp_xyz[ntemp][npt].Write()
+            ofile.cd()
+
+    # calculate final pT result
+    m2tot = 0
+    for npt in range(pt_count):
+        m2tot += data_entries[npt]
+        for ntemp in temp_counter:
+            m2ent[ntemp] += data_entries[npt]*temp_pars[ntemp][npt]
+
+    # chi2 graph
+    gChi.SetLineColor(1)
+    gChi.SetLineWidth(2)
+    gChi.GetXaxis().SetLabelSize(0.05)
+    gChi.GetYaxis().SetLabelSize(0.05)
+    gChi.GetYaxis().SetTitle("chi2/ndf")
+    gChi.GetXaxis().SetTitle("<p_{T}> (GeV)")
+    gChi.GetXaxis().SetTitleSize(0.05)
+    gChi.GetYaxis().SetTitleSize(0.05)
+
+    gChi_signal.SetLineColor(1)
+    gChi_signal.SetLineWidth(2)
+    gChi_signal.GetXaxis().SetLabelSize(0.05)
+    gChi_signal.GetYaxis().SetLabelSize(0.05)
+    gChi_signal.GetYaxis().SetTitle("chi2/ndf")
+    gChi_signal.GetXaxis().SetTitle("<p_{T}> (GeV)")
+    gChi_signal.GetXaxis().SetTitleSize(0.05)
+    gChi_signal.GetYaxis().SetTitleSize(0.05)
+
+    chi2_canvas = ROOT.TCanvas("total chi2/ndf", "total chi2/ndf", 1440, 1080)
+    chi2_canvas.SetMargin(0.15, 0.05, 0.2, 0.05)
+    chi2_canvas.cd()
+    gChi.SetTitle()
+    gChi.Draw()
+
+    # canvas for all fractions
+    fractions = ROOT.TCanvas("fractions", "fractions", 1440, 1080)
+    ROOT.gPad.SetGridx()
+    ROOT.gPad.SetGridy()
+    fractions.cd()
+    fractions.SetFillColor(0)
+    fractions.SetBorderMode(0)
+    fractions.SetBorderSize(2)
+    fractions.SetFrameBorderMode(0)
+    fractions.SetMargin(0.15, 0.05, 0.2, 0.05)
+
+    # fraction graphs
+    gEmpty = temp_graphs[0]
+    gEmpty.SetTitle("")
+    gEmpty.SetFillStyle(1000)
+    gEmpty.SetMinimum(0.)
+    gEmpty.SetMaximum(1.0)
+    gx = gEmpty.GetXaxis()
+    gy = gEmpty.GetYaxis()
+    gx.SetLimits(pt_axis.GetBinLowEdge(pt_range[0][0] - 1), pt_axis.GetBinLowEdge(pt_range[-1][1] + 1))
+    gx.SetTitle("<p_{T}> (GeV)")
+    gx.SetLabelFont(42)
+    gx.SetLabelSize(0.06)
+    gx.SetTitleSize(0.07)
+    gx.SetTitleOffset(1)
+    gx.SetTitleFont(42)
+    gy.SetTitle("fractions")
+    gy.SetLabelFont(42)
+    gy.SetLabelSize(0.06)
+    gy.SetTitleSize(0.07)
+    gy.SetTitleFont(42)
+    gEmpty.Draw("alp")
+    for ntemp in range(1, temp_count):
+        temp_graphs[ntemp].DrawClone("lp same")
+    for npt in range(pt_count):
+        line = ROOT.TLine(pt_axis.GetBinLowEdge(pt_range[npt][0]), temp_pars[0][npt], pt_axis.GetBinLowEdge(pt_range[npt][1] + 1), temp_pars[0][npt])
+        line.DrawClone("same")
+
+    # average
+    primAvg = ROOT.TF1("primAvg", "[0]", 0, 5)
+    primAvg.SetParameter(0, m2ent[0] / (m2tot + 1))
+    primAvg.SetLineColor(12)
+    primAvg.SetLineStyle(2)
+    primAvg.Draw("same")
+
+    # dump info
+    for i in temp_counter:
+        print("%-12s %.6f" % (dca_names[i], m2ent[i] / (m2tot + 1)))
+
+    # save output
+    ofile.cd()
+    for ntemp in temp_counter:
+        temp_graphs[ntemp].Write()
+    gChi.Write("chi2/ndf")
+    fractions.Write("hDCA_fractions")
+    if print_canvas:
+        chi2_canvas.SaveAs("total_chi2-ndf.png")
+        fractions.SaveAs("hDCA_fractions.png")
+    primAvg.Write()
+
+### internal functions ###
+def _setup_tgraphs(dca_names, temp_colors, pt_count):
+    graphs = [ROOT.TGraph(pt_count - 1) for ntemp in range(len(dca_names))]
+    for ntemp in range(len(dca_names)):
+        graphs[ntemp].SetName(dca_names[ntemp])
+        graphs[ntemp].SetTitle(dca_names[ntemp])
+        graphs[ntemp].SetLineWidth(2)
+        graphs[ntemp].SetLineColor(ntemp + 3)
+        graphs[ntemp].SetMarkerStyle(21)
+        graphs[ntemp].SetMarkerSize(2)
+        graphs[ntemp].SetMarkerColor(ntemp + 3)
+        graphs[ntemp].GetXaxis().SetLabelSize(0.05)
+        graphs[ntemp].GetYaxis().SetLabelSize(0.05)
+        graphs[ntemp].GetXaxis().SetTitleSize(0.05)
+        graphs[ntemp].GetXaxis().SetTitle("<p_{T}> (GeV)")
+        if dca_names[ntemp] in temp_colors:
+            graphs[ntemp].SetLineColor(temp_colors[dca_names[ntemp]])
+            graphs[ntemp].SetMarkerColor(temp_colors[dca_names[ntemp]])
+    return graphs
+
+def _empty_tgraph(xAxis, pt_range):
+    empty_graph = ROOT.TGraph(0)
+    empty_graph.SetTitle("")
+    empty_graph.SetFillStyle(1000)
+    empty_graph.SetMinimum(0.)
+    empty_graph.SetMaximum(1.0)
+    gx = empty_graph.GetXaxis()
+    gy = empty_graph.GetYaxis()
+    gx.SetLimits(xAxis.GetBinLowEdge(pt_range[0][0] - 1), xAxis.GetBinLowEdge(pt_range[-1][1] + 1))
+    gx.SetTitle("<p_{T}> (GeV)")
+    gx.SetLabelFont(42)
+    gx.SetLabelSize(0.06)
+    gx.SetTitleSize(0.07)
+    gx.SetTitleOffset(1)
+    gx.SetTitleFont(42)
+    gy.SetTitle("fractions")
+    gy.SetLabelFont(42)
+    gy.SetLabelSize(0.06)
+    gy.SetTitleSize(0.07)
+    gy.SetTitleFont(42)
+    return empty_graph
+
+def _fractions_canvas():
+    canvas = ROOT.TCanvas("fractions", "fractions", 1440, 1080)
+    canvas.cd()
+    ROOT.gPad.SetGridx()
+    ROOT.gPad.SetGridy()
+    canvas.SetFillColor(0)
+    canvas.SetBorderMode(0)
+    canvas.SetBorderSize(2)
+    canvas.SetFrameBorderMode(0)
+    canvas.SetMargin(0.15, 0.05, 0.2, 0.05)
+    return canvas
 

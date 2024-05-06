@@ -11,6 +11,8 @@ def UFFA(settings):
         UFFA_cf(conf)
     elif conf['function'] == 'tf':
         UFFA_tf(conf)
+    elif conf['function'] == 'tf2d':
+        UFFA_tf2d(conf)
     elif conf['function'] == 'ctf':
         UFFA_ctf(conf)
     elif conf['function'] == 'syst':
@@ -49,6 +51,17 @@ def UFFA_tf(settings):
     ofile = fds.getFile()
 
     TF.TemplateFit(ofile, dca_data, dca_mcplots, conf['tftype'], conf['namelist'], conf['fitrange'], conf['signalrange'], conf['bins'], conf['rebin'], conf['outDir'], conf['temp_init'], conf['temp_limits'], conf['temp_fraction'], conf['print'])
+
+# template fits 2d
+def UFFA_tf2d(settings):
+    conf = config(settings)
+    dca_data = conf['data']
+    dca_mcplots = conf['templates']
+
+    fds = FDS.FemtoDreamSaver(settings)
+    ofile = fds.getFile()
+
+    TF.TemplateFit2D(ofile, dca_data, dca_mcplots, conf['namelist'], conf['fitrange'], conf['signalrange'], conf['bins'], conf['rebin'], conf['outDir'], conf['temp_init'], conf['temp_limits'], conf['temp_fraction'], conf['print'], conf['debug'])
 
 # combined template fits
 def UFFA_ctf(settings):

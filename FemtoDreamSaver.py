@@ -32,6 +32,8 @@ class FemtoDreamSaver(FS.FileSaver):
             self._save_tf()
         elif self._func in ['ctf']:
             self._save_ctf()
+        elif self._func in ['tf2d']:
+            self._save_tf2d()
         elif self._func == 'syst':
             if self._htype in ['mtmult', 'rew3d', '4d', 'rew4d']:
                 self._save_syst_3d()
@@ -56,7 +58,6 @@ class FemtoDreamSaver(FS.FileSaver):
     # function that saves all the histos in the correct file format
     # saver for UFFA_cf()
     def _save_cf(self):
-        # create the output file
         self._create_output("UFFA_")
 
         # histos setup
@@ -204,12 +205,14 @@ class FemtoDreamSaver(FS.FileSaver):
 
     # saver for UFFA_tf()
     def _save_tf(self):
-        # create the output file
         self._create_output("TemplateFit_")
 
     # saver for UFFA_ctf()
+    def _save_tf2d(self):
+        self._create_output("TemplateFit2D_")
+
+    # saver for UFFA_ctf()
     def _save_ctf(self):
-        # create the output file
         self._create_output("CombinedFit_")
 
     # saver for UFFA_cf()
