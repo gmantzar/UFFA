@@ -1304,9 +1304,14 @@ def TemplateFit2D(fname, dca_data, dca_templates, dca_names, fit_range, signal_r
         canvas.cd(2)
         legend.Draw()
 
-        # (data - fit) plot
+        # (data - fit) plots
         data_copy = data.Clone("data_copy")
         htot_copy = htot.Clone("htot_copy")
+
+        data_fit = data.Clone("data - fit")
+        data_fit.Add(htot_copy.Clone(), -1)
+        data_fit.GetYaxis().SetRangeUser(range_user[0][0], range_user[0][1])
+        data_fit.GetXaxis().SetRangeUser(range_user[1][0], range_user[1][1])
 
         data_fit_xy = data_copy.Clone("data_copy_xy_1").ProjectionY("data_copy_xy_proj_y_1").Clone("data - fit xy")
         data_fit_xy.Add(htot_copy.Clone().ProjectionY(), -1)
@@ -1333,7 +1338,7 @@ def TemplateFit2D(fname, dca_data, dca_templates, dca_names, fit_range, signal_r
         htot.GetXaxis().SetRangeUser(range_user[1][0], range_user[1][1])
 
         # create canvas with th2 data + fit surf plot
-        canvas_data_fit = ROOT.TCanvas("canvas_data_fit_{npt}", "canvas_data_fit_{npt}", 800, 800)
+        canvas_data_fit = ROOT.TCanvas(f"canvas_data_fit_{npt}", f"canvas_data_fit_{npt}", 800, 800)
         canvas_data_fit.cd()
         data.Draw("surf2")
         htot.Draw("surf same")
@@ -1377,6 +1382,7 @@ def TemplateFit2D(fname, dca_data, dca_templates, dca_names, fit_range, signal_r
         if debug:
             newdir = debug_dir.mkdir(f"pt_{pt_bins[npt]}-{pt_bins[npt + 1]}")
             newdir.cd()
+            data_fit.Write()
             data_fit_xy.Write()
             data_fit_z.Write()
             data_fit_rel_xy.Write()
