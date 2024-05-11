@@ -63,14 +63,16 @@ def find_bin_reduce_on_lower_edge(axis, value):
 
 # normalize, reweight and merge histograms
 def merge_templates_weighted(newname, temp1, temp2, weight1, weight2):
+    for hist in [temp1, temp2]:
+        hist.Sumw2()
     hist1 = temp1.Clone(newname)
     hist2 = temp2.Clone()
-    if hist1.InheritsFrom("THnBase"):
-        hist1.Scale(1/hist1.Projection(0).Integral())
-        hist2.Scale(1/hist2.Projection(0).Integral())
-    else:
-        hist1.Scale(1/hist1.Integral())
-        hist2.Scale(1/hist2.Integral())
+    for hist in [hist1, hist2]:
+        hist.Sumw2()
+        if hist.InheritsFrom("THnBase"):
+            hist.Scale(1 / hist.Projection(0).Integral())
+        else:
+            hist.Scale(1/hist1.Integral())
     if weight1:
         hist1.Scale(weight1)
     if weight2:
@@ -101,8 +103,8 @@ def setup_colors():
     color_fit  = ROOT.kRed
     color_temp = {
         "Primary":          ROOT.kGreen,
-        "Secondary":        ROOT.kYellow,
-        "WrongCollision":   ROOT.kOrange,
+        "Secondary":        ROOT.kOrange,
+        "WrongCollision":   ROOT.kViolet,
         "Material":         ROOT.kBlue,
         "Fake":             ROOT.kGray,
         "SecLambda":        ROOT.kMagenta,
@@ -185,7 +187,7 @@ def setup_fit_range_xyz(fitrange, pt_count):
 # setup signal range
 def setup_signal_range(signal_range):
     if type(signal_range) in [int, float]:
-        signal_range = [-signal_range, signal_range]
+        signal_range = (-signal_range, signal_range)
     return signal_range
 
 # setup signal range for xy and z
@@ -1152,14 +1154,14 @@ def TemplateFit2D(fname, dca_data, dca_templates, dca_names, fit_range, signal_r
 
         # data
         data = data_xyz[npt]
+        if data.GetSumw2N() == 0:
+            data.Sumw2(ROOT.kTRUE)
         if pt_rebin and pt_rebin[0][npt] != 1:
             data.RebinX(pt_rebin[0][npt])
         if pt_rebin and pt_rebin[1][npt] != 1:
             data.RebinY(pt_rebin[1][npt])
         data_int = data.Integral()
         data_entries.append(data_int)
-        if data.GetSumw2N() == 0:
-            data.Sumw2(ROOT.kTRUE)
         if data_int:
             data.Scale(1. / data_int)
 
@@ -1167,14 +1169,14 @@ def TemplateFit2D(fname, dca_data, dca_templates, dca_names, fit_range, signal_r
         temp_histos = []
         for ntemp in temp_counter:
             temp_histos.append(temp_xyz[ntemp][npt])
+            if temp_histos[ntemp].GetSumw2N() == 0:
+                temp_histos[ntemp].Sumw2(ROOT.kTRUE)
             if pt_rebin and pt_rebin[0][npt] != 1:
                 temp_histos[ntemp].RebinX(pt_rebin[0][npt])
             if pt_rebin and pt_rebin[1][npt] != 1:
                 temp_histos[ntemp].RebinY(pt_rebin[1][npt])
             temp_histos[ntemp].SetTitle(pt_names[npt])
             temp_int = temp_histos[ntemp].Integral()
-            if temp_histos[ntemp].GetSumw2N() == 0:
-                temp_histos[ntemp].Sumw2(ROOT.kTRUE)
             if temp_int:
                 temp_histos[ntemp].Scale(1. / temp_int)
 
@@ -1219,6 +1221,10 @@ def TemplateFit2D(fname, dca_data, dca_templates, dca_names, fit_range, signal_r
                 error = error**0.5
                 #data.SetBinError(nbinx, nbiny, error)
 
+        # setup lines to be drawn for the signal region
+        range_user = [(signal_range[i][0] * 1.5, signal_range[i][1] * 1.5) for i in range(2)]
+        signal_lines = [(ROOT.TLine(signal_range[i][0], 0, signal_range[i][0], 0.1), ROOT.TLine(signal_range[i][1], 0, signal_range[i][1], 0.1)) for i in range(2)]
+
         # draw histograms
         data.Fit("fitter", "S, N, R, M", "")
         data.SetLineColor(color_data)
@@ -1242,7 +1248,29 @@ def TemplateFit2D(fname, dca_data, dca_templates, dca_names, fit_range, signal_r
 
         # xy th1 fit
         canvas.cd(1)
-        data.ProjectionX().Draw("h")
+        ROOT.gPad.SetLogy()
+        data_proj = data.ProjectionY()
+        data_proj.GetXaxis().SetRangeUser(range_user[0][0], range_user[0][1])
+        data_proj.Draw("h")
+        for ntemp in temp_counter:
+            temp_histos[ntemp].ProjectionY().Draw("h same")
+
+        htoty = temp_histos[0].ProjectionY().Clone(f"htoty_{npt + 1}")
+        for ntemp in range(1, temp_count):
+            htoty.Add(temp_histos[ntemp].ProjectionY())
+        htoty.SetLineColor(color_fit)
+        htoty.SetLineWidth(2)
+        htoty.Draw("he same")
+
+        for i in range(2):
+            signal_lines[0][i].Draw("same")
+
+        # z th1 fit
+        canvas.cd(2)
+        ROOT.gPad.SetLogy()
+        data_proj = data.ProjectionX()
+        data_proj.GetXaxis().SetRangeUser(range_user[1][0], range_user[1][1])
+        data_proj.Draw("h")
         for ntemp in temp_counter:
             temp_histos[ntemp].ProjectionX().Draw("h same")
 
@@ -1253,27 +1281,19 @@ def TemplateFit2D(fname, dca_data, dca_templates, dca_names, fit_range, signal_r
         htotx.SetLineWidth(2)
         htotx.Draw("h same")
 
-        # z th1 fit
-        canvas.cd(2)
-        data.ProjectionY().Draw("h")
-        for ntemp in temp_counter:
-            temp_histos[ntemp].ProjectionY().Draw("h same")
-
-        htoty = temp_histos[0].ProjectionY().Clone(f"htoty_{npt + 1}")
-        for ntemp in range(1, temp_count):
-            htoty.Add(temp_histos[ntemp].ProjectionY())
-        htoty.SetLineColor(color_fit)
-        htoty.SetLineWidth(2)
-        htoty.Draw("h same")
+        for i in range(2):
+            signal_lines[1][i].Draw("same")
 
         # legend
-        legend = ROOT.TLegend(0.15, 0.40, 0.35, 0.8)
+        legend = ROOT.TLegend(0.15, 0.45, 0.35, 0.85)
         legend.SetTextSize(0.05)
         legend.SetBorderSize(0)
         legend.SetLineColor(1)
         legend.SetLineWidth(1)
         legend.SetFillColor(0)
-        legend.SetFillStyle(0)
+        #legend.SetFillStyle(0)
+        legend.SetTextFont(43)
+        legend.SetTextSize(18)
 
         legend.AddEntry(data, "total", "l")
         legend.AddEntry(htot, "fit", "l")
@@ -1284,15 +1304,52 @@ def TemplateFit2D(fname, dca_data, dca_templates, dca_names, fit_range, signal_r
         canvas.cd(2)
         legend.Draw()
 
+        # (data - fit) plot
+        data_copy = data.Clone("data_copy")
+        htot_copy = htot.Clone("htot_copy")
+
+        data_fit_xy = data_copy.Clone("data_copy_xy_1").ProjectionY("data_copy_xy_proj_y_1").Clone("data - fit xy")
+        data_fit_xy.Add(htot_copy.Clone().ProjectionY(), -1)
+        data_fit_xy.GetXaxis().SetRangeUser(range_user[0][0], range_user[0][1])
+
+        data_fit_z = data_copy.Clone("data_copy_z_1").ProjectionX("data_copy_z_proj_x_1").Clone("data - fit z")
+        data_fit_z.Add(htot_copy.ProjectionX(), -1)
+        data_fit_z.GetXaxis().SetRangeUser(range_user[1][0], range_user[1][1])
+
+        data_fit_rel_xy = data_copy.Clone("data_copy_xy_2").ProjectionY("data_copy_xy_proj_y_2").Clone("(data - fit) / data xy")
+        data_fit_rel_xy.Add(htot_copy.ProjectionY(), -1)
+        data_fit_rel_xy.Divide(data_copy.ProjectionY())
+        data_fit_rel_xy.GetXaxis().SetRangeUser(range_user[0][0], range_user[0][1])
+
+        data_fit_rel_z = data_copy.Clone("data_copy_z_2").ProjectionX("data_copy_z_proj_x_2").Clone("(data - fit) / data z")
+        data_fit_rel_z.Add(htot_copy.ProjectionX(), -1)
+        data_fit_rel_z.Divide(data_copy.ProjectionX())
+        data_fit_rel_z.GetXaxis().SetRangeUser(range_user[1][0], range_user[1][1])
+
+        # change range of th2 plots
+        data.GetYaxis().SetRangeUser(range_user[0][0], range_user[0][1])
+        data.GetXaxis().SetRangeUser(range_user[1][0], range_user[1][1])
+        htot.GetYaxis().SetRangeUser(range_user[0][0], range_user[0][1])
+        htot.GetXaxis().SetRangeUser(range_user[1][0], range_user[1][1])
+
+        # create canvas with th2 data + fit surf plot
+        canvas_data_fit = ROOT.TCanvas("canvas_data_fit_{npt}", "canvas_data_fit_{npt}", 800, 800)
+        canvas_data_fit.cd()
+        data.Draw("surf2")
+        htot.Draw("surf same")
+
         # write to file
         ofile.cd()
         newdir = ofile.mkdir(f"pt_{pt_bins[npt]}-{pt_bins[npt + 1]}")
         newdir.cd()
+        data.Write(f"hDCA_xyz_Data_{npt}")
+        htot.Write(f"hDCA_xyz_Fit_{npt}")
         for ntemp in temp_counter:
             temp_histos[ntemp].Write()
+        canvas_data_fit.Write()
         canvas.Write()
         if print_canvas:
-            canvas.SaveAs(f"{canvas.GetName()}.png")
+            canvas.SaveAs(f"temp2d_{canvas.GetName()}.png")
         ofile.cd()
 
         # fractions
@@ -1320,9 +1377,10 @@ def TemplateFit2D(fname, dca_data, dca_templates, dca_names, fit_range, signal_r
         if debug:
             newdir = debug_dir.mkdir(f"pt_{pt_bins[npt]}-{pt_bins[npt + 1]}")
             newdir.cd()
-            data.Write()
-            for ntemp in temp_counter:
-                temp_xyz[ntemp][npt].Write()
+            data_fit_xy.Write()
+            data_fit_z.Write()
+            data_fit_rel_xy.Write()
+            data_fit_rel_z.Write()
             ofile.cd()
 
     # calculate final pT result
@@ -1413,8 +1471,8 @@ def TemplateFit2D(fname, dca_data, dca_templates, dca_names, fit_range, signal_r
     gChi.Write("chi2/ndf")
     fractions.Write("hDCA_fractions")
     if print_canvas:
-        chi2_canvas.SaveAs("total_chi2-ndf.png")
-        fractions.SaveAs("hDCA_fractions.png")
+        chi2_canvas.SaveAs("temp2d_total_chi2-ndf.png")
+        fractions.SaveAs("temp2d_hDCA_fractions.png")
     primAvg.Write()
 
 ### internal functions ###
