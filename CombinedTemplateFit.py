@@ -24,19 +24,14 @@ class ftotal:
 
 # fitting object for tf2
 class ftotal2d:
-    def __init__(self, data, mcdata):
-        self.data = data
-        self.x = data.GetXaxis()
-        self.y = data.GetYaxis()
+    def __init__(self, mcdata):
         self.histos = mcdata
         self.ent = len(mcdata)
 
     def __call__(self, val, par):
-        binx = self.x.FindBin(val[0])
-        biny = self.y.FindBin(val[1])
         total = 0
         for ntemp in range(len(self.histos)):
-            total += par[ntemp]*self.histos[ntemp].GetBinContent(binx, biny)
+            total += par[ntemp]*self.histos[ntemp].GetBinContent(self.histos[ntemp].FindBin(val[0]), self.histos[ntemp].FindBin(val[1]))
 
         return total
 
@@ -1181,7 +1176,7 @@ def TemplateFit2D(fname, dca_data, dca_templates, dca_names, fit_range, signal_r
                 temp_histos[ntemp].Scale(1. / temp_int)
 
         # fit function
-        fit_obj = ftotal2d(data, temp_histos)
+        fit_obj = ftotal2d(temp_histos)
         fitter = ROOT.TF2("fitter", fit_obj, fitrange[0][npt][0], fitrange[0][npt][1], fitrange[1][npt][0], fitrange[1][npt][1], temp_count)
 
         # initialize fitting parameters
