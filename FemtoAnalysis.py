@@ -413,7 +413,7 @@ class cf_handler():
         self._mc    = conf['mc']                # bool monte carlo data
         self._bins  = conf['bins']              # bin range for differential
         self._diff3d = conf['diff3d']           # which axis to split first in a 3D analysis
-        self._bins3d = conf['bins3d']   # bin range for the first differential split in case of a 3D analysis
+        self._bins3d = conf['bins3d']           # bin range for the first differential split in case of a 3D analysis
         self._rebin = conf['rebin']             # rebin factors for all se, me, cf plots
         self._norm  = conf['normalize']         # normalization range
         self._perc  = conf['percentile']        # percentile range
@@ -495,13 +495,13 @@ class cf_handler():
             if self._htype == 'mtmult': # 3D differantial analysis
                 histos = getDifferential3D(self._se, self._me, self._diff3d, self._bins3d, self._bins, self._rebin, self._norm)
             elif self._htype == 'rew3d':
-                histos, histos_unw = getDiffReweight3D(self._se, self._me, self._bins3d, self._bins, self._rebin, self._norm, self._rew_range)
+                histos, histos_unw = getDiffReweight3D(self._se, self._me, self._diff3d, self._bins3d, self._bins, self._rebin, self._norm, self._rew_range)
             elif self._htype in ['4d', 'rew4d']:
                 se3d, me3d = getProj4d(self._se, self._me, self._perc)
                 if self._htype == '4d':
                     histos = getDifferential3D(se3d, me3d, self._diff3d, self._bins3d, self._bins, self._rebin, self._norm)
                 else:
-                    histos, histos_unw = getDiffReweight3D(se3d, me3d, self._bins3d, self._bins, self._rebin, self._norm, self._rew_range)
+                    histos, histos_unw = getDiffReweight3D(se3d, me3d, self._diff3d, self._bins3d, self._bins, self._rebin, self._norm, self._rew_range)
             else:
                 histos = getDifferential(self._se, self._me, self._htype, self._bins, self._rebin, self._norm)
                 if self._mc:
@@ -582,7 +582,7 @@ class cf_handler():
             se, me = getProj4d(self._se, self._me, self._perc)
 
         if self._htype in ['rew3d', 'rew4d']:
-            histos, histos_unw = getDiffReweight3D(se, me, self._bins3d, self._bins, self._rebin, self._norm, self._rew_range)
+            histos, histos_unw = getDiffReweight3D(se, me, self._diff3d, self._bins3d, self._bins, self._rebin, self._norm, self._rew_range)
         else:
             histos = getDifferential3D(se, me, self._diff3d, self._bins3d, self._bins, self._rebin, self._norm)
 
@@ -608,7 +608,7 @@ class cf_handler():
             se, me = getProj4d(self._se, self._me, self._perc)
 
         if self._htype in ['rew3d', 'rew4d']:
-            histos, histos_unw = getDiffReweight3D(se, me, self._bins3d, self.bins, self._rebin, self._nrm, self._rew_range)
+            histos, histos_unw = getDiffReweight3D(se, me, self._diff3d, self._bins3d, self.bins, self._rebin, self._nrm, self._rew_range)
         else:
             histos = getDifferential3D(se, me, self._diff3d, self._bins3d, self._bins, self._rebin, self._norm)
 
@@ -634,33 +634,23 @@ def getBinRangeHistos(iSE, iME, bins):
         [[name, SE, ME], [bin2], ...]
     where the name is a string containing the limits.
     """
-    xAxis = iSE.GetXaxis()
     yAxis = iSE.GetYaxis()
 
     if type(bins) == list:
         limits = []
-        for value_diff in bins:
-            value_bin = yAxis.FindBin(float(value_diff))
-            limits.append(value_bin)
+        for n in range(len(bins) - 1):
+            bin_low = yAxis.FindBin(bins[n])
+            bin_up  = FU.find_bin_reduce_on_lower_edge(yAxis, bins[n + 1])
+            limits.append((bin_low, bin_up))
     else:
         print("Error in getBinRangeHistos: bin input \"" + str(bins) + "\" not a list of ranges!")
         exit()
 
-
     histos = []
-    for n in range(1, len(bins)):
-        diff_low = bins[n - 1]
-        diff_up  = bins[n]
-
-        bin_low = xAxis.FindBin(diff_low)
-        bin_up  = xAxis.FindBin(diff_up)
-
-        if diff_up == xAxis.GetBinLowEdge(bin_up):
-            bin_up -= 1
-
-        name = "[%.2f-%.2f)" % (bins[n - 1], bins[n])
-        se = iSE.ProjectionX("se_k", bin_low, bin_up)
-        me = iME.ProjectionX("me_k", bin_low, bin_up)
+    for n in range(len(limits)):
+        name = "[%.2f-%.2f)" % (bins[n], bins[n + 1])
+        se = iSE.ProjectionX("se_k", limits[n][0], limits[n][1])
+        me = iME.ProjectionX("me_k", limits[n][0], limits[n][1])
         histos.append([name, se.Clone(), me.Clone()])
 
     return histos
@@ -690,36 +680,22 @@ def getBinRangeHistos3D(iSE, iME, diff3d, bins3d):
 
     if type(bins3d) == list:
         limits = []
-        for value_diff in bins3d:
-            value_bin = diffAxisSE.FindBin(float(value_diff))
-            limits.append(value_bin)
+        for n in range(len(bins3d) - 1):
+            bin_low = diffAxisSE.FindBin(bins3d[n])
+            bin_up  = FU.find_bin_reduce_on_lower_edge(diffAxisSE, bins3d[n + 1])
+            limits.append((bin_low, bin_up))
     else:
         print("Error in getBinRangeHistos: bin input \"" + str(bins3d) + "\" not a list of ranges!")
         exit()
 
     histos = []
-    for n in range(1, len(limits)):
-
-        diff_low = bins3d[n - 1]
-        diff_up  = bins3d[n]
-        print(diff_low, diff_up)
-
-        bin_low = diffAxisSE.FindBin(diff_low)
-        bin_up  = diffAxisSE.FindBin(diff_up)
-        print(bin_low, bin_up)
-        print("bin_up low edge:", diffAxisSE.GetBinLowEdge(bin_up))
-        print("bin_up - 1 =", bin_up - 1)
-        print("bin_up upper edge:", diffAxisSE.GetBinLowEdge(bin_up))
-
-        if diff_up == diffAxisSE.GetBinLowEdge(bin_up):
-            bin_up -= 1
-
-        name = diff3d + ": [%.2f-%.2f)" % (bins3d[n - 1], bins3d[n])
-        diffAxisSE.SetRange(bin_low, bin_up)
-        diffAxisME.SetRange(bin_low, bin_up)
-        se = iSE.Project3D("SE_"+projOpt+"_"+name)
-        me = iME.Project3D("ME_"+projOpt+"_"+name)
-        histos.append([name, se.Clone(), me.Clone()])
+    for n in range(len(limits)):
+        name = diff3d + ": [%.2f-%.2f)" % (bins3d[n], bins3d[n + 1])
+        diffAxisSE.SetRange(limits[n][0], limits[n][1])
+        diffAxisME.SetRange(limits[n][0], limits[n][1])
+        se = iSE.Project3D(projOpt)
+        me = iME.Project3D(projOpt)
+        histos.append([name, se.Clone(f"SE_{projOpt}_{name}"), me.Clone(f"ME_{projOpt}_{name}")])
 
     return histos
 
@@ -747,16 +723,13 @@ def getDifferential(iSE, iME, htype, bins, rebin, norm, title = None):
     conf = "" if not title else title + " "         # append to given name
     if htype == 'mult':
         conf += "mult: "
-        histos.append([iSE.Clone("SE kmult"), iME.Clone("ME kmult")])
+        histos.append([iSE.Clone("SE_kmult"), iME.Clone("ME_kmult")])
     elif htype == 'mt':
         conf += "mt: "
-        histos.append([iSE.Clone("SE kmT"), iME.Clone("ME kmT")])
+        histos.append([iSE.Clone("SE_kmT"), iME.Clone("ME_kmT")])
     else:
         print("getDifferential: no kmT or kmult input!")
         exit()
-
-    print(htype)
-    print(bins)
 
     mt_histos = getBinRangeHistos(iSE, iME, bins)
     for n, [name, se, me] in enumerate(mt_histos, 1):
@@ -782,23 +755,21 @@ def getDifferential3D(iSE, iME, diff3d, bins3d, bins, rebin, norm):
         [ [ [SE, ME, CF, [rebinned SE, ME, CF]], [mult/mt bin2], ... ], [mt/mult bin2], ... ]
     """
     histos = []
-    histos.append([iSE.Clone("SE kmTmult"), iME.Clone("ME kmTmult")])
+    histos.append([iSE.Clone("SE_kmTmult"), iME.Clone("ME_kmTmult")])
 
     diff3d_histos = getBinRangeHistos3D(iSE, iME, diff3d, bins3d)
 
-    htypeSplit2 = ""
-    if diff3d == 'mult':
-        htypeSplit2 = "mt"
-    elif diff3d == 'mt':
-        htypeSplit2 = "mult"
+    diff_2 = 'mult'
+    if (diff3d == "mult"):
+        diff_2 = 'mt'
 
     for title, se, me in diff3d_histos:
-        histos.append(getDifferential(se, me, htypeSplit2, bins, rebin, norm, title))
+        histos.append(getDifferential(se, me, diff_2, bins, rebin, norm, title))
 
     return histos
 
 # [[iSE, iME], [[1st proj SE, 1st proj ME], [se, me, cf, [rebin], [bin 2 [rebin]]]], ...]
-def getDiffReweight3D(iSE, iME, bins3d, bins, rebin, norm, rew_range):
+def getDiffReweight3D(iSE, iME, diff3d, bins3d, bins, rebin, norm, rew_range):
     """
     This function takes as input 3D mult-mt-k* plots
     and splits them first in mt according to the limits defined in 'bins3d'.
@@ -811,14 +782,17 @@ def getDiffReweight3D(iSE, iME, bins3d, bins, rebin, norm, rew_range):
         [ [ [SE, ME, CF, [rebinned SE, ME, CF]], [mult bin2], ... ], [mt bin2], ... ]
     """
     histos = []
-    histos.append([iSE.Clone("SE kmTmult"), iME.Clone("ME kmTmult")])
+    histos.append([iSE.Clone("SE_kmTmult"), iME.Clone("ME_kmTmult")])
 
-    histos_unw = getDifferential3D(iSE, iME, "mt", bins3d, bins, rebin, norm)
+    diff_2 = 'mult'
+    if (diff3d == "mult"):
+        diff_2 = 'mt'
 
-    histos_diff3d = reweight3D(iSE, iME, bins3d, rew_range)
+    histos_unw = getDifferential3D(iSE, iME, diff3d, bins3d, bins, rebin, norm)
+    histos_diff3d = reweight3D(iSE, iME, diff3d, bins3d, rew_range)
 
     for title, se, me in histos_diff3d:
-        histos.append(getDifferential(se, me, "mult", bins, rebin, norm, title))
+        histos.append(getDifferential(se, me, diff_2, bins, rebin, norm, title))
 
     return histos, histos_unw
 
@@ -829,11 +803,11 @@ def getIntegrated(iSE, iME, htype, rebin, norm, rew_range):
     histos = []
     histos_unw = []
     if htype == 'k':      # k* input
-        histos.append([iSE.Clone("SE kstar"), iME.Clone("ME kstar")])
+        histos.append([iSE.Clone("SE_kstar"), iME.Clone("ME_kstar")])
         se = iSE
         me = iME
     elif htype == 'mult':    # kmult input
-        histos.append([iSE.Clone("SE kmult"), iME.Clone("ME kmult")])
+        histos.append([iSE.Clone("SE_kmult"), iME.Clone("ME_kmult")])
         hReweight = reweight(iSE, iME, rew_range)
         se          = hReweight[0]
         me          = hReweight[1]
@@ -841,11 +815,11 @@ def getIntegrated(iSE, iME, htype, rebin, norm, rew_range):
         se_mult     = hReweight[4]
         me_mult     = hReweight[5]
         me_mult_unw = hReweight[6]
-        histos[0].append(se_mult.Clone("SE mult"))
-        histos[0].append(me_mult.Clone("ME mult"))
-        histos[0].append(me_mult_unw.Clone("ME mult unw"))
+        histos[0].append(se_mult.Clone("SE_mult"))
+        histos[0].append(me_mult.Clone("ME_mult"))
+        histos[0].append(me_mult_unw.Clone("ME_mult unw"))
     elif htype == 'mt':    # kmT input
-        histos.append([iSE.Clone("SE kmT"), iME.Clone("ME kmT")])
+        histos.append([iSE.Clone("SE_kmT"), iME.Clone("ME_kmT")])
         hReweight = reweight(iSE, iME, rew_range)
         se = hReweight[0]
         me = hReweight[2]   # unweighted me, i.e. normal me projection of the kmT histo
@@ -861,7 +835,7 @@ def getIntegrated(iSE, iME, htype, rebin, norm, rew_range):
         histos[1].append(histos_rebin)
     if htype == 'mult':      # 2nd list with unweighted histos
         se, me, cf = getCorrelation(se, me_unw, "cf_unw", "unweighted", norm)
-        histos_unw.append(me.Clone("ME unw"))
+        histos_unw.append(me.Clone("ME_unw"))
         histos_unw.append(cf.Clone("CF unw"))
         histos_unw.append([])
         if rebin:           # append rebinned histos to list of histos
@@ -871,7 +845,7 @@ def getIntegrated(iSE, iME, htype, rebin, norm, rew_range):
                 me_rebin = rebin_hist(me, factor)
                 rebin_conf = " rebin: " + str(factor)
                 se_rebin, me_rebin, cf_rebin = getCorrelation(se_rebin, me_rebin, "rebin: " + str(factor), rebin_conf, norm)
-                histos_unw[2].append([me_rebin.Clone("ME unw"), cf_rebin.Clone("CF unw")])
+                histos_unw[2].append([me_rebin.Clone("ME_unw"), cf_rebin.Clone("CF_unw")])
 
     return histos, histos_unw
 
@@ -879,7 +853,7 @@ def getIntegrated(iSE, iME, htype, rebin, norm, rew_range):
 # returns [se, me, me unweighted, se mult, me mult, me mult unweighted]
 def reweight(iSE, iME, rew_range):
     """
-    This function takes as input a 2D mt/mult vs k* SE and ME distribution
+    This function takes as input a 2D mult vs k* SE and ME distribution
     and reweights the ME distribution in each bin projection of mt/mult.
 
     The output is a list that includes all plots that can be generated:
@@ -892,22 +866,18 @@ def reweight(iSE, iME, rew_range):
         [6] ME 1D mt/mult unweighted
     """
 
-    me = iME.Clone("ME kmult reweighted")
+    me = iME.Clone("ME_kmult_reweighted")
     me.Reset("ICESM")
     me_axis = me.GetYaxis()
 
     se_k = iSE.ProjectionX("se_k")
     me_k = iME.ProjectionX("me_k")
 
+    int_min = 0
+    int_max = se_k.GetNbinsX()
     if rew_range:
         int_min = se_k.FindBin(rew_range[0])
-        int_max = se_k.FindBin(rew_range[1])
-    else:
-        int_min = 0
-        int_max = se_k.GetNbinsX()
-
-    se_int = se_k.Integral(int_min, int_max)
-    me_int = me_k.Integral(int_min, int_max)
+        int_max = se_k.FindBin(FU.get_bin_reduce_on_lower_edge(iME.GetXaxis(), rew_range[1]))
 
     se_mult = iSE.ProjectionY("se_mult")
     me_mult = iME.ProjectionY("me_mult")
@@ -919,20 +889,15 @@ def reweight(iSE, iME, rew_range):
     me_mult.Reset("ICESM")
 
     # loop for the projection of each multiplicity slice
-    for ybin in range(1, iSE.GetNbinsY() + 1):
+    for ybin in range(1, iSE.GetNbinsY()):
         se_n = iSE.ProjectionX("se_bin", ybin, ybin)
         me_n = iME.ProjectionX("me_bin", ybin, ybin)
 
-        se_int = 1
-        me_int = 1
+        se_int = se_n.Integral(int_min, int_max)
+        me_int = me_n.Integral(int_min, int_max)
 
-        if se_int:
-            se_ratio = se_n.Integral(int_min, int_max) / se_int
-        if me_int:
-            me_ratio = me_n.Integral(int_min, int_max) / me_int
-
-        if me_ratio > 0. and se_ratio > 0.:
-            me_n.Scale(se_ratio / me_ratio)
+        if me_int > 0. and se_int > 0.:
+            me_n.Scale(se_int / me_int)
             me_mult.SetBinContent(ybin, me_n.Integral(int_min, int_max))
             me_k.Add(me_n)
             for xbin in range(1, me_n.GetNbinsX() + 1):        # fill th2 reweighted ME
@@ -944,7 +909,7 @@ def reweight(iSE, iME, rew_range):
 
 # split th3 in mt range and reweight each slice in multiplicity
 # output: [[name, mult-k SE, reweighted mult-k ME], [bin 2], ...]
-def reweight3D(iSE, iME, bins3d, rew_range):
+def reweight3D(iSE, iME, diff3d, bins3d, rew_range):
     """
     This function takes as input a 3D SE and ME distribution
     and splits them in mt by the provided binning.
@@ -953,7 +918,7 @@ def reweight3D(iSE, iME, bins3d, rew_range):
     The output is a list for the individual mt bins with the name (mt limits), SE, ME:
         [[name, SE mult/k*, ME mult/k* reweighted], [bin 2], ...]
     """
-    histos = getBinRangeHistos3D(iSE, iME, "mt", bins3d)        # split th3 in mt and get a list of mult-k histos
+    histos = getBinRangeHistos3D(iSE, iME, diff3d, bins3d)        # split th3 in mt and get a list of mult-k histos
     out = []
 
     for hist in histos:
@@ -967,16 +932,8 @@ def getProj4d(iSE, iME, perc_range):
     me4d = iME.Clone("4d_perc_me")
 
     axis = se4d.GetAxis(3)
-
-    perc_low = perc_range[0]
-    perc_up  = perc_range[1]
-
-    bin_low = axis.FindBin(perc_low)
-    bin_up  = axis.FindBin(perc_up)
-
-    # lower the upper bin number if it is right on the next bin's lower edge
-    if perc_up == axis.GetBinLowEdge(bin_up):
-        bin_up -= 1
+    bin_low = axis.FindBin(perc_range[0])
+    bin_up  = FU.find_bin_reduce_on_lower_edge(axis, perc_range[1])
 
     se4d.GetAxis(3).SetRange(bin_low, bin_up)
     me4d.GetAxis(3).SetRange(bin_low, bin_up)

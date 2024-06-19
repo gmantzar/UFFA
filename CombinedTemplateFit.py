@@ -184,21 +184,28 @@ def setup_fit_range_xyz(fitrange, pt_count):
     return fitrange
 
 # setup signal range
-def setup_signal_range(signal_range):
+def setup_signal_range(signal_range, pt_count):
     if type(signal_range) in [int, float]:
-        signal_range = (-signal_range, signal_range)
-    return signal_range
+        signal = [(-signal_range, signal_range) for n in range(pt_count)]
+    if type(signal_range) == list:
+        if type(signal_range[0]) in [int, float]:
+            signal = [(-signal_range[n], signal_range[n]) for n in range(len(signal_range))]
+            if len(signal) < pt_count:
+                signal += [(-signal_range[-1], signal_range[-1])]*(pt_count - len(fitrange))
+        elif type(singal_range[0]) == tuple:
+            if len(signal) < pt_count:
+                signal += [signal_range[-1]]*(pt_count - len(fitrange))
+    return signal
 
 # setup signal range for xy and z
-def setup_signal_range_xyz(signal_range):
+def setup_signal_range_xyz(signal_range, pt_count):
     if type(signal_range) in [int, float]:
-        signal_range = setup_signal_range(signal_range)
+        signal_range = setup_signal_range(signal_range, pt_count)
         signal_range = [signal_range, signal_range]
     if type(signal_range) == list and len(signal_range) == 2:
-        if type(signal_range[0]) in [int, float]:
-            signal_range1 = setup_signal_range(signal_range[0])
-            signal_range2 = setup_signal_range(signal_range[1])
-            signal_range = [signal_range1, signal_range2]
+        signal_range1 = setup_signal_range(signal_range[0], pt_count)
+        signal_range2 = setup_signal_range(signal_range[1], pt_count)
+        signal_range = [signal_range1, signal_range2]
     return signal_range
 
 # setup signal range as bin number
@@ -1119,7 +1126,7 @@ def TemplateFit2D(fname, dca_data, dca_templates, dca_names, fit_range, signal_r
     pt_rebin = setup_rebin_xyz(pt_rebin, pt_count)                  # setup rebin factors for each pt range
     pt_names = setup_pt_names(pt_bins, pt_rebin, pt_count)          # setup the title for each pt range
     fitrange = setup_fit_range_xyz(fit_range, pt_count)             # setup the fitrange for each pt range
-    signal_range = setup_signal_range_xyz(signal_range)             # setup the signal range
+    signal_range = setup_signal_range_xyz(signal_range, pt_count)   # setup the signal range
     temp_fraction = setup_temp_dict(temp_fraction, pt_count)        # setup init and limit values for fractions
 
     # print debug information
@@ -1221,8 +1228,8 @@ def TemplateFit2D(fname, dca_data, dca_templates, dca_names, fit_range, signal_r
                 #data.SetBinError(nbinx, nbiny, error)
 
         # setup lines to be drawn for the signal region
-        range_user = [(signal_range[i][0] * 1.5, signal_range[i][1] * 1.5) for i in range(2)]
-        signal_lines = [(ROOT.TLine(signal_range[i][0], 0, signal_range[i][0], 0.1), ROOT.TLine(signal_range[i][1], 0, signal_range[i][1], 0.1)) for i in range(2)]
+        range_user = [(signal_range[i][npt][0] * 1.5, signal_range[i][npt][1] * 1.5) for i in range(2)]
+        signal_lines = [(ROOT.TLine(signal_range[i][npt][0], 0, signal_range[i][npt][0], 0.1), ROOT.TLine(signal_range[i][npt][1], 0, signal_range[i][npt][1], 0.1)) for i in range(2)]
 
         # draw histograms
         data.Fit("fitter", "S, N, R, M", "")
@@ -1357,10 +1364,10 @@ def TemplateFit2D(fname, dca_data, dca_templates, dca_names, fit_range, signal_r
         ofile.cd()
 
         # fractions
-        binx_low = htot.GetXaxis().FindBin(signal_range[1][0])
-        biny_low = htot.GetYaxis().FindBin(signal_range[0][0])
-        binx_up = find_bin_reduce_on_lower_edge(htot.GetXaxis(), signal_range[1][1])
-        biny_up = find_bin_reduce_on_lower_edge(htot.GetXaxis(), signal_range[0][1])
+        binx_low = htot.GetXaxis().FindBin(signal_range[1][npt][0])
+        biny_low = htot.GetYaxis().FindBin(signal_range[0][npt][0])
+        binx_up = find_bin_reduce_on_lower_edge(htot.GetXaxis(), signal_range[1][npt][1])
+        biny_up = find_bin_reduce_on_lower_edge(htot.GetXaxis(), signal_range[0][npt][1])
         htot_int = htot.Integral(binx_low, binx_up, biny_low, biny_up)
         temp_entries.append(htot_int)
         for ntemp in temp_counter:
